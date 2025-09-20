@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Person Types</h2>
+
+<form method="POST" class="mb-4">
+  <div class="input-group">
+    <input type="text" name="name" class="form-control" placeholder="New type name" required>
+    <button class="btn btn-primary" type="submit">Add Type</button>
+  </div>
+</form>
+
+<ul class="list-group">
+  {% for type in types %}
+  <li class="list-group-item">{{ type[1] }}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

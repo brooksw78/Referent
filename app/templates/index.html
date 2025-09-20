@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<img src="{{ url_for('static', filename='images/referent-logo.png') }}"
+     alt="Referent Logo"
+     height="400"
+     class="me-2 logo-animated">
+<h2>Referent</h2>
+<p class="lead">Track historical and literary references across the books you read.</p>
+
+<div class="d-grid gap-2 d-md-flex">
+  <a href="{{ url_for('main.books') }}" class="btn btn-primary">View Books</a>
+  <a href="{{ url_for('main.people') }}" class="btn btn-primary">View People</a>
+  <a href="{{ url_for('main.citations') }}" class="btn btn-primary">View Citations</a>
+</div>
+{% endblock %}

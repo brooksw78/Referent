@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>{{ book[1] }}</h2>
+
+<div class="row">
+  {% if book[4] %}
+  <div class="col-md-3">
+    <img src="{{ book[4] }}" alt="Cover image" class="img-fluid rounded mb-3">
+  </div>
+  {% endif %}
+
+  <div class="col-md-9">
+    <p><strong>Author(s):</strong> {{ book[5] or '—' }}</p>
+    <p><strong>Translator(s):</strong> {{ book[6] or '—' }}</p>
+    <p><strong>Publication Year:</strong> {{ book[2] or '—' }}</p>
+    <p><strong>ISBN:</strong> {{ book[3] or '—' }}</p>
+  </div>
+</div>
+
+<div><a href="{{ url_for('main.add_citation') }}?book_id={{ book[0] }}" class="btn btn-primary my-3">
+  Add Referent
+</a></div>
+
+{% if citations %}
+<h4 class="mt-4">Referents</h3>
+<ul class="list-group">
+  {% for citation in citations %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+            <strong>{{ citation[1] }}</strong> on page {{ citation[2] }}
+            {% if citation[5] %}
+              <i class="bi bi-journal-minus ms-2 text-info" title="Indirect citation"></i>
+            {% endif %}
+            {% if citation[4] %}
+            <button class="btn btn-sm btn-link p-0 ms-2" data-bs-toggle="collapse" data-bs-target="#note-{{ citation[0] }}">
+                <i class="bi bi-chat-left-text-fill" title="Show note"></i>
+            </button>
+            <div class="collapse mt-2 w-75" id="note-{{ citation[0] }}">
+                <div class="card card-body text-bg-info" style="white-space: pre-wrap;">
+                {{- citation[4] -}}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="btn-group">
+            <a href="{{ url_for('main.citations_for_person', person_id=citation[3]) }}" class="btn btn-sm btn-outline-primary">View Person</a>
+            <a href="{{ url_for('main.edit_citation', citation_id=citation[0]) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+        </div>
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="mt-4 text-muted">No citations yet for this book.</p>
+{% endif %}
+
+<a href="{{ url_for('main.books') }}" class="btn btn-outline-primary mt-3">Back to Books</a>
+{% endblock %}

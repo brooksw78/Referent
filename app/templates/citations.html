@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Citations</h2>
+
+<a href="{{ url_for('main.add_citation') }}" class="btn btn-success mb-3">Add Citation</a>
+
+<div class="list-group">
+  {% for citation in citations %}
+  <div class="list-group-item d-flex justify-content-between align-items-center">
+    <div>
+      <strong>{{ citation[1] }}</strong> referenced in 
+      <a href="{{ url_for('main.view_book', book_id=citation[4]) }}">
+        <em>{{ citation[2] }}</em>
+      </a>, page {{ citation[3] }}
+      {% if citation[6] %}
+        <i class="bi bi-journal-minus ms-2 text-info" title="Indirect citation"></i>
+      {% endif %}
+      {% if citation[5] %}
+        <button class="btn btn-sm btn-link p-0 ms-2" data-bs-toggle="collapse" data-bs-target="#note-{{ citation[0] }}">
+          <i class="bi bi-chat-left-text-fill" title="Show note"></i>
+        </button>
+        <div class="collapse mt-2 w-75" id="note-{{ citation[0] }}">
+          <div class="card card-body text-bg-info" style="white-space: pre-wrap;">
+            {{- citation[5] -}}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+    <a href="{{ url_for('main.edit_citation', citation_id=citation[0]) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,86 @@
+
+
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Add a Person</h2>
+<form method="POST" action="{{ url_for('main.add_person') }}">
+    <div class="mb-3 w-50">
+        <label for="name" class="form-label">Name</label>
+        <input type="text" class="form-control" name="name" value="{{ request.args.get('name', '') }}" required>
+    </div>
+
+    <div class="mb-3 w-25">
+        <label for="type_id" class="form-label">Person Type</label>
+        <select class="form-select" name="type_id">
+            <option value="">— Select type —</option>
+            {% for type in person_types %}
+            <option value="{{ type[0] }}">{{ type[1] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="mb-3 w-25">
+        <label for="birth_year" class="form-label">Birth Year</label>
+        <input type="number" class="form-control" name="birth_year" id="birth_year" min="0" max="2100">
+    </div>
+
+    <div class="mb-3 w-25">
+        <label for="death_year" class="form-label">Death Year</label>
+        <input type="number" class="form-control " name="death_year" id="death_year" min="0" max="2100">
+    </div>
+
+    <div id="wiki-preview" class="border rounded p-3 mt-3 bg-light" style="display: none;">
+        <p id="wiki-summary" class="mb-1"></p>
+        <p id="wiki-link" class="mb-0"><a href="#" target="_blank">View on Wikipedia</a></p>
+    </div>
+
+    <div class="mb-3">
+        <p id="wiki-years" class="mb-0 text-muted"></p>
+    </div>
+
+    <div class="mb-3">
+        <input type="hidden" name="redirect_to" value="{{ redirect_to }}">
+        <button type="submit" class="btn btn-primary">Add Person</button>
+        <a href="{{ url_for('main.people') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const nameField = document.querySelector('input[name="name"]');
+  const previewBox = document.getElementById("wiki-preview");
+  const summaryEl = document.getElementById("wiki-summary");
+  const linkEl = document.getElementById("wiki-link").querySelector("a");
+  const yearsEl = document.getElementById("wiki-years");
+  const birthInput = document.getElementById("birth_year");
+  const deathInput = document.getElementById("death_year");
+
+  nameField.addEventListener("blur", function () {
+    const name = nameField.value.trim();
+    if (!name) return;
+
+    fetch(`/wikipedia/preview?name=${encodeURIComponent(name)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.summary || data.url) {
+          summaryEl.textContent = data.summary || "No summary available.";
+          linkEl.href = data.url || "#";
+          yearsEl.textContent = data.birth_year
+            ? `Born ${data.birth_year}` + (data.death_year ? ` – Died ${data.death_year}` : '')
+            : '';
+          if (data.birth_year) birthInput.value = data.birth_year;
+          if (data.death_year) deathInput.value = data.death_year;
+          previewBox.style.display = "block";
+        } else {
+          previewBox.style.display = "none";
+        }
+      })
+      .catch(err => {
+        console.error("Wikipedia preview failed:", err);
+        previewBox.style.display = "none";
+      });
+  });
+});
+</script>
+{% endblock %}

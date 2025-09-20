@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Lookup Book via Open Library</h2>
+
+<form method="POST" class="mb-4">
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label for="title" class="form-label">Title</label>
+      <input type="text" class="form-control" name="title" value="{{ request.form.title }}">
+    </div>
+
+    <div class="col-md-4">
+      <label for="author" class="form-label">Author</label>
+      <input type="text" class="form-control" name="author" value="{{ request.form.author }}">
+    </div>
+
+    <div class="col-md-4">
+      <label for="isbn" class="form-label">ISBN</label>
+      <input type="text" class="form-control" name="isbn" value="{{ request.form.isbn }}">
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <button type="submit" class="btn btn-primary">Search Open Library</button>
+  </div>
+</form>
+
+{% if results %}
+<h3>Results</h3>
+<div class="list-group">
+  {% for book in results %}
+  <div class="list-group-item">
+    <h5 class="mb-1">{{ book.title }}</h5>
+    <p class="mb-1">
+      <strong>Authors:</strong> {{ book.authors|join(', ') }}<br>
+      <strong>Publication Year:</strong> {{ book.publication_year or '—' }}<br>
+      <strong>ISBN:</strong> {{ book.isbn or '—' }}
+    </p>
+    <form action="{{ url_for('main.add_book') }}" method="POST" style="display:inline;">
+      <input type="hidden" name="title" value="{{ book.title }}">
+      <input type="hidden" name="authors" value="{{ book.authors|join(', ') }}">
+      <input type="hidden" name="publication_year" value="{{ book.publication_year }}">
+      <input type="hidden" name="isbn" value="{{ book.isbn or '' }}">
+      <button class="btn btn-sm btn-success">Import</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Referent</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+  <link 
+    rel="stylesheet" 
+    href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.6/dist/simplex/bootstrap.min.css"
+  >
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+  <style>
+    .tt-menu {
+      width: 100%;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 0.25rem;
+      z-index: 1000;
+      padding: 0.5rem 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    .tt-suggestion {
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+    }
+
+    .tt-suggestion:hover,
+    .tt-suggestion.tt-cursor {
+      background-color: #e9ecef;
+    }
+
+    .tt-highlight {
+      font-weight: bold;
+    }
+
+    .tt-menu .tt-dataset {
+      margin-top: 0;
+    }
+
+    .tt-menu .empty-message {
+      padding: 0.5rem 1rem;
+      color: #888;
+    }
+  </style>
+</head>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+  <div class="container-fluid">
+    <a class="navbar-brand d-flex align-items-center" href="{{ url_for('main.index') }}">
+     <img src="{{ url_for('static', filename='images/referent-logo.png') }}"
+     alt="Referent Logo"
+     height="40"
+     class="me-2 logo-animated">
+    </a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('main.books') }}">Books</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('main.people') }}">People</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('main.citations') }}">Referents</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('main.manage_person_types') }}">People Types</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

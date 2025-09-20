@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Add Citation</h2>
+
+<form method="POST" autocomplete="off">
+    <div class="mb-3">
+        <label for="person_id" class="form-label">Person</label>
+        <div class="d-flex align-items-center">
+            <input type="text" id="person_name" class="form-control me-2" placeholder="Person’s name..." autocomplete="off" required>
+            <input type="hidden" id="person_id" name="person_id">
+            <a href="#" id="toggle-inline-person-form" class="btn btn-link btn-sm">+ Add Person</a>
+        </div>
+        
+
+        <div id="inline-person-form" class="mt-3 border p-3 rounded" style="display: none;">
+            <div class="mb-2 w-25">
+                <input type="text" id="inline-person-name" class="form-control" placeholder="Full name" autocomplete="off">
+            </div>
+
+            <div class="mb-2" w-25>
+                <select id="inline-person-type" class="form-select">
+                    <option value="">— Person Type (optional) —</option>
+                    {% for type in person_types %}
+                    <option value="{{ type[0] }}">{{ type[1] }}</option>
+                    {% endfor %}
+                    <option value="_new">+ Add new type...</option>
+                </select>
+            </div>
+            <div id="inline-new-person-type-container" class="mt-2" style="display: none;">
+              <input type="text" id="inline-new-person-type" class="form-control" placeholder="New person type">
+            </div>
+
+            <div class="mb-2 d-flex">
+                <input type="number" id="inline-birth-year" class="form-control me-2" placeholder="Birth Year">
+                <input type="number" id="inline-death-year" class="form-control" placeholder="Death Year">
+            </div>
+
+            <div id="inline-wiki-preview" class="small text-muted mb-2" style="display: none;"></div>
+
+            <div class="d-flex gap-2">
+              <button id="submit-inline-person" class="btn btn-sm btn-primary">Add Person</button>
+              <button id="cancel-inline-person" class="btn btn-sm btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
+  <div class="mb-3 w-25">
+    <label for="book_id" class="form-label">Book</label>
+    <select class="form-select" name="book_id" required>
+        <option value="" disabled {% if not preselected_book_id %}selected{% endif %}>— Select a book —</option>
+        {% for book in books %}
+        <option value="{{ book[0] }}" {% if preselected_book_id == book[0] %}selected{% endif %}>
+            {{ book[1] }}
+        </option>
+        {% endfor %}
+    </select>
+  </div>
+
+  <div class="mb-3 w-25">
+    <label for="page_number" class="form-label">Page Number</label>
+    <input type="text" class="form-control" name="page_number" required>
+  </div>
+
+  <div class="form-check mb-3">
+    <input class="form-check-input" type="checkbox" id="indirect_citation" name="indirect_citation">
+    <label class="form-check-label" for="indirect_citation">
+      Indirect citation
+    </label>
+  </div>
+
+    <div class="mb-3 w-50">
+        <label for="notes" class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="2"></textarea>
+    </div>
+
+  <button type="submit" class="btn btn-primary">Add Citation</button>
+  <a href="{{ url_for('main.citations') }}" class="btn btn-secondary">Cancel</a>
+</form>
+
+<!-- Bootstrap Toast for inline person confirmation -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+  <div id="inlinePersonToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true" style="display:none;">
+    <div class="d-flex">
+      <div class="toast-body">
+        Person added successfully.
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/corejs-typeahead/1.3.1/typeahead.bundle.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // Initialize Bloodhound suggestion engine
+  var persons = new Bloodhound({
+    datumTokenizer: Bloodhound.tokenizers.obj.whitespace('text'),
+    queryTokenizer: Bloodhound.tokenizers.whitespace,
+    remote: {
+      url: '/people/search?q=%QUERY',
+      wildcard: '%QUERY'
+    }
+  });
+
+  $('#person_name').typeahead(
+    {
+      hint: true,
+      highlight: true,
+      minLength: 1
+    },
+    {
+      name: 'persons',
+      display: 'text',
+      source: persons
+    }
+  ).on('typeahead:select', function(event, suggestion) {
+    $('#person_id').val(suggestion.id);
+  }).on('typeahead:change', function(event, value) {
+    if (!value) {
+      $('#person_id').val('');
+    }
+  });
+
+  const inlineForm = document.getElementById("inline-person-form");
+  const toggleBtn = document.getElementById("toggle-inline-person-form");
+  const submitBtn = document.getElementById("submit-inline-person");
+  const nameInput = document.getElementById("inline-person-name");
+  const typeInput = document.getElementById("inline-person-type");
+  const birthInput = document.getElementById("inline-birth-year");
+  const deathInput = document.getElementById("inline-death-year");
+  const wikiPreview = document.getElementById("inline-wiki-preview");
+  const personNameInput = document.getElementById("person_name");
+  const personIdInput = document.getElementById("person_id");
+  const newTypeContainer = document.getElementById("inline-new-person-type-container");
+  const newTypeInput = document.getElementById("inline-new-person-type");
+  // Show/hide new type input based on select value
+  typeInput.addEventListener("change", function () {
+    if (this.value === "_new") {
+      newTypeContainer.style.display = "block";
+    } else {
+      newTypeContainer.style.display = "none";
+      newTypeInput.value = "";
+    }
+  });
+
+  // Initialize Bootstrap Toast
+  var toastElement = document.getElementById('inlinePersonToast');
+  var toast = new bootstrap.Toast(toastElement);
+
+  toggleBtn.addEventListener("click", function (e) {
+    e.preventDefault();
+    if (inlineForm.style.display === "none") {
+      inlineForm.style.display = "block";
+      personNameInput.disabled = true;
+      nameInput.focus();
+    } else {
+      inlineForm.style.display = "none";
+      personNameInput.disabled = false;
+      // Reset person_name and person_id inputs when closing inline form without submission
+      personNameInput.value = "";
+      personIdInput.value = "";
+    }
+  });
+
+  nameInput.addEventListener("blur", function () {
+    const name = nameInput.value.trim();
+    if (!name) return;
+
+    fetch(`/wikipedia/preview?name=${encodeURIComponent(name)}`)
+      .then(res => res.json())
+      .then(data => {
+        wikiPreview.style.display = "block";
+        wikiPreview.innerHTML = data.summary
+          ? `<div>${data.summary}</div><div><a href="${data.url}" target="_blank">${data.url}</a></div>`
+          : "No Wikipedia summary found.";
+
+        birthInput.value = data.birth_year || '';
+        deathInput.value = data.death_year || '';
+      })
+      .catch(() => {
+        wikiPreview.style.display = "none";
+      });
+  });
+
+  submitBtn.addEventListener("click", function (e) {
+    e.preventDefault();
+    const name = nameInput.value.trim();
+    const type_id = typeInput.value || null;
+    const birth_year = birthInput.value || null;
+    const death_year = deathInput.value || null;
+    const new_type_name = newTypeInput.value || null;
+
+    if (!name) return alert("Please enter a name.");
+
+    fetch("/people/inline-add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        type_id: type_id !== "_new" ? type_id : null,
+        new_type_name,
+        birth_year,
+        death_year
+      })
+    })
+    .then(async (res) => {
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to add person.");
+      }
+      return res.json();
+    })
+    .then(data => {
+      personIdInput.value = data.id;
+      personNameInput.value = data.name;
+
+      inlineForm.style.display = "none";
+      personNameInput.disabled = false;
+      nameInput.value = "";
+      typeInput.value = "";
+      birthInput.value = "";
+      deathInput.value = "";
+      newTypeInput.value = "";
+      newTypeContainer.style.display = "none";
+      wikiPreview.style.display = "none";
+
+      toastElement.style.display = "block";
+      toast.show();
+    })
+    .catch(err => {
+      showToast(err.message || "Failed to add person.", "danger");
+      console.error(err);
+    });
+  });
+
+  const cancelBtn = document.getElementById("cancel-inline-person");
+
+  cancelBtn.addEventListener("click", function (e) {
+    e.preventDefault();
+    inlineForm.style.display = "none";
+    personNameInput.disabled = false;
+    personNameInput.value = "";
+    personIdInput.value = "";
+    nameInput.value = "";
+    typeInput.value = "";
+    birthInput.value = "";
+    deathInput.value = "";
+    newTypeInput.value = "";
+    newTypeContainer.style.display = "none";
+    wikiPreview.style.display = "none";
+  });
+});
+</script>
+<script>
+// Bootstrap Toast helper (ensure this is included only once in your base template or here)
+function showToast(message, type = 'danger') {
+  const toastId = 'toast-' + Date.now();
+  const toastHtml = `
+    <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0 show" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body">
+          ${message}
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    </div>`;
+  const container = document.getElementById('toast-container');
+  container.insertAdjacentHTML('beforeend', toastHtml);
+  const toastElement = document.getElementById(toastId);
+  const bsToast = new bootstrap.Toast(toastElement, { delay: 5000 });
+  bsToast.show();
+}
+</script>
+
+<div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;"></div>
+{% endblock %}

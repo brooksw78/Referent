@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Edit Person</h2>
+
+<form method="POST">
+  <div class="mb-3">
+    <label for="name" class="form-label">Name</label>
+    <input type="text" class="form-control" name="name" value="{{ person[1] }}" required>
+  </div>
+
+  <div class="mb-3">
+    <label for="type_id" class="form-label">Person Type</label>
+    <select class="form-select" name="type_id">
+      <option value="">— Select type —</option>
+      {% for type in person_types %}
+      <option value="{{ type[0] }}" {% if type[0] == person[2] %}selected{% endif %}>
+        {{ type[1] }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Save Changes</button>
+  <a href="{{ url_for('main.people') }}" class="btn btn-secondary">Cancel</a>
+</form><br />
+{% if person[3] or person[4] %}
+
+
+  {% if person[3] %}
+    <div class="card bg-light mb-3" style="max-width: 80rem;">
+        <div class="card-header">Wikipedia</div>
+        <div class="card-body">
+            <p class="card-text"><a class="card-link" href="{{ person[3] }}" target="_blank">{{ person[3] }}</a></p>
+        </div>
+    </div>
+  {% endif %}
+  {% if person[4] %}
+    <div class="card text-white bg-primary mb-3" style="max-width: 80rem;">
+        <div class="card-header">Summary</div>
+        <div class="card-body">
+            <p class="card-text">{{ person[4] }}</p>
+        </div>
+    </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

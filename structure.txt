@@ -1,0 +1,30 @@
+referent/
+├── app/
+│   ├── __init__.py              # Flask app factory
+│   ├── routes.py                # Flask routes (view, add, list)
+│   ├── db.py                    # Raw SQLite3 helper functions
+│   ├── wikipedia_utils.py       # Wikipedia lookup functions
+│   ├── templates/               # Jinja2 HTML templates
+│   │   ├── base.html
+│   │   ├── index.html
+│   │   ├── books.html
+│   │   ├── add_book.html
+│   │   ├── people.html
+│   │   ├── add_person.html
+│   │   ├── citations.html
+│   │   └── add_citation.html
+│   └── static/
+│       └── style.css            # Optional styles
+├── instance/
+│   └── referent.sqlite3         # SQLite DB (auto-generated)
+├── schema.sql                   # Full schema for init
+├── run.py                       # Flask app entry point
+├── .env                         # Flask environment variables
+├── .envrc                       # direnv auto-activation (optional)
+├── requirements.txt             # Python dependencies
+├── .gitignore                   # Ignore venv, DB, etc.
+├── README.md                    # Project overview
+├── venv/                        # Python virtual environment (excluded from Git)
+└── .vscode/                     # VS Code settings (optional)
+    ├── launch.json              # Flask debugger config
+    └── settings.json            # Python path & env file
