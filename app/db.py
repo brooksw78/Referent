@@ -18,6 +18,22 @@ def _ensure_book_schema():
             conn.commit()
 
 
+def _ensure_person_schema():
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(people)")
+        columns = {row[1] for row in cursor.fetchall()}
+        updates = []
+        if "birth_year_era" not in columns:
+            updates.append("ALTER TABLE people ADD COLUMN birth_year_era TEXT NOT NULL DEFAULT 'AD'")
+        if "death_year_era" not in columns:
+            updates.append("ALTER TABLE people ADD COLUMN death_year_era TEXT NOT NULL DEFAULT 'AD'")
+        for statement in updates:
+            cursor.execute(statement)
+        if updates:
+            conn.commit()
+
+
 def init_db():
     with get_connection() as conn:
         with open("schema.sql") as f:
@@ -61,20 +77,28 @@ def get_books(include_completed=True, ensure_ids=None):
                 b.publication_year,
                 b.isbn,
                 authors.names AS authors,
+                authors.ids AS author_ids,
                 translators.names AS translators,
+                translators.ids AS translator_ids,
                 COALESCE(c_counts.citation_count, 0) AS citation_count,
                 COALESCE(e_counts.epigraph_count, 0) AS epigraph_count,
                 b.is_complete
             FROM books b
             LEFT JOIN (
-                SELECT bc.book_id, REPLACE(GROUP_CONCAT(DISTINCT p.name), ',', ', ') AS names
+                SELECT
+                    bc.book_id,
+                    REPLACE(GROUP_CONCAT(DISTINCT p.name), ',', ', ') AS names,
+                    REPLACE(GROUP_CONCAT(DISTINCT p.id || '::' || p.name), ',', '|') AS ids
                 FROM book_contributors bc
                 JOIN people p ON p.id = bc.person_id
                 WHERE bc.role = 'author'
                 GROUP BY bc.book_id
             ) AS authors ON authors.book_id = b.id
             LEFT JOIN (
-                SELECT bc.book_id, REPLACE(GROUP_CONCAT(DISTINCT p.name), ',', ', ') AS names
+                SELECT
+                    bc.book_id,
+                    REPLACE(GROUP_CONCAT(DISTINCT p.name), ',', ', ') AS names,
+                    REPLACE(GROUP_CONCAT(DISTINCT p.id || '::' || p.name), ',', '|') AS ids
                 FROM book_contributors bc
                 JOIN people p ON p.id = bc.person_id
                 WHERE bc.role = 'translator'
@@ -299,13 +323,24 @@ def get_book_contributors(book_id, role=None):
 
 
 # ---------- PEOPLE ----------
-def add_person(name, wiki_url, bio_summary, type_id=None, nationality_id=None, birth_year=None, death_year=None, notes=None):
+def add_person(
+    name,
+    wiki_url,
+    bio_summary,
+    type_id=None,
+    nationality_id=None,
+    birth_year=None,
+    death_year=None,
+    notes=None,
+    birth_year_era="AD",
+    death_year_era="AD",
+):
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO people (name, wiki_url, bio_summary, type_id, nationality_id, birth_year, death_year, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        """, (name, wiki_url, bio_summary, type_id, nationality_id, birth_year, death_year, notes))
+            INSERT INTO people (name, wiki_url, bio_summary, type_id, nationality_id, birth_year, death_year, birth_year_era, death_year_era, notes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """, (name, wiki_url, bio_summary, type_id, nationality_id, birth_year, death_year, birth_year_era or "AD", death_year_era or "AD", notes))
         return cursor.lastrowid
 
 
@@ -320,6 +355,10 @@ def get_people(search_term=None):
                 people.wiki_url,
                 COUNT(DISTINCT citations.id) AS citation_count,
                 COUNT(DISTINCT epigraphs.id) AS epigraph_count,
+                people.birth_year,
+                people.death_year,
+                people.birth_year_era,
+                people.death_year_era,
                 nationalities.name AS nationality
             FROM people
             LEFT JOIN person_types ON people.type_id = person_types.id
@@ -351,7 +390,9 @@ def get_person_by_id(person_id):
                 people.notes,
                 person_types.name AS type_name,
                 people.nationality_id,
-                nationalities.name AS nationality_name
+                nationalities.name AS nationality_name,
+                people.birth_year_era,
+                people.death_year_era
             FROM people
             LEFT JOIN person_types ON people.type_id = person_types.id
             LEFT JOIN nationalities ON people.nationality_id = nationalities.id
@@ -361,7 +402,19 @@ def get_person_by_id(person_id):
         )
         return cursor.fetchone()
 
-def update_person(person_id, name, type_id, nationality_id, birth_year, death_year, notes, wiki_url=None, bio_summary=None):
+def update_person(
+    person_id,
+    name,
+    type_id,
+    nationality_id,
+    birth_year,
+    death_year,
+    notes,
+    wiki_url=None,
+    bio_summary=None,
+    birth_year_era="AD",
+    death_year_era="AD",
+):
     with get_connection() as conn:
         conn.execute("""
             UPDATE people
@@ -370,12 +423,14 @@ def update_person(person_id, name, type_id, nationality_id, birth_year, death_ye
                 nationality_id = ?,
                 birth_year = ?,
                 death_year = ?,
+                birth_year_era = ?,
+                death_year_era = ?,
                 notes = ?,
                 wiki_url = ?,
                 bio_summary = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
-        """, (name, type_id, nationality_id, birth_year, death_year, notes, wiki_url, bio_summary, person_id))
+        """, (name, type_id, nationality_id, birth_year, death_year, birth_year_era or "AD", death_year_era or "AD", notes, wiki_url, bio_summary, person_id))
 
 def delete_person(person_id):
     with get_connection() as conn:
@@ -433,7 +488,13 @@ def get_citations_by_book(book_id):
             FROM citations c
             JOIN people p ON c.person_id = p.id
             WHERE c.book_id = ?
-            ORDER BY c.page_number
+            ORDER BY
+                CASE
+                    WHEN TRIM(c.page_number) GLOB '[0-9]*' AND TRIM(c.page_number) <> ''
+                        THEN CAST(TRIM(c.page_number) AS INTEGER)
+                    ELSE NULL
+                END,
+                TRIM(c.page_number)
         """, (book_id,))
         return cursor.fetchall()
 
@@ -568,3 +629,4 @@ def get_book_contributions_by_person(person_id):
 
 
 _ensure_book_schema()
+_ensure_person_schema()

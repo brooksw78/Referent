@@ -38,12 +38,24 @@
 
     <div class="mb-3 w-25">
         <label for="birth_year" class="form-label">Birth Year</label>
-        <input type="number" class="form-control" name="birth_year" id="birth_year" min="0" max="2100">
+        <div class="input-group">
+            <input type="number" class="form-control" name="birth_year" id="birth_year" min="0" max="2100">
+            <select class="form-select" name="birth_year_era" aria-label="Birth year era">
+                <option value="AD" selected>AD</option>
+                <option value="BC">BC</option>
+            </select>
+        </div>
     </div>
 
     <div class="mb-3 w-25">
         <label for="death_year" class="form-label">Death Year</label>
-        <input type="number" class="form-control " name="death_year" id="death_year" min="0" max="2100">
+        <div class="input-group">
+            <input type="number" class="form-control " name="death_year" id="death_year" min="0" max="2100">
+            <select class="form-select" name="death_year_era" aria-label="Death year era">
+                <option value="AD" selected>AD</option>
+                <option value="BC">BC</option>
+            </select>
+        </div>
     </div>
 
     <div class="mb-3 w-75">
@@ -61,7 +73,7 @@
     </div>
 
     <div class="mb-3">
-        <input type="hidden" name="redirect_to" value="{{ redirect_to }}">
+        <input type="hidden" name="redirect_to" value="{{ redirect_to or '' }}">
         <button type="submit" class="btn btn-primary">Add Person</button>
         <a href="{{ url_for('main.people') }}" class="btn btn-secondary">Cancel</a>
     </div>

@@ -11,7 +11,10 @@
 
   <div class="mb-3">
     <label for="wiki_url" class="form-label">Wikipedia URL</label>
-    <input type="url" class="form-control" name="wiki_url" value="{{ person[3] or '' }}" placeholder="https://en.wikipedia.org/wiki/Example">
+    <div class="input-group">
+      <input type="url" class="form-control" name="wiki_url" value="{{ person[3] or '' }}" placeholder="https://en.wikipedia.org/wiki/Example">
+      <a class="btn btn-outline-secondary" href="https://en.wikipedia.org/w/index.php?search={{ person[1]|urlencode }}" target="_blank" rel="noreferrer">Find</a>
+    </div>
   </div>
 
   <div class="mb-3">
@@ -40,12 +43,24 @@
 
   <div class="mb-3 w-25">
     <label for="birth_year" class="form-label">Birth Year</label>
-    <input type="number" class="form-control" name="birth_year" id="birth_year" min="0" max="2100" value="{{ person[5] or '' }}">
+    <div class="input-group">
+      <input type="number" class="form-control" name="birth_year" id="birth_year" min="0" max="2100" value="{{ person[5] or '' }}">
+      <select class="form-select" name="birth_year_era">
+        <option value="AD" {% if (person[11] or 'AD') == 'AD' %}selected{% endif %}>AD</option>
+        <option value="BC" {% if person[11] == 'BC' %}selected{% endif %}>BC</option>
+      </select>
+    </div>
   </div>
 
   <div class="mb-3 w-25">
     <label for="death_year" class="form-label">Death Year</label>
-    <input type="number" class="form-control" name="death_year" id="death_year" min="0" max="2100" value="{{ person[6] or '' }}">
+    <div class="input-group">
+      <input type="number" class="form-control" name="death_year" id="death_year" min="0" max="2100" value="{{ person[6] or '' }}">
+      <select class="form-select" name="death_year_era">
+        <option value="AD" {% if (person[12] or 'AD') == 'AD' %}selected{% endif %}>AD</option>
+        <option value="BC" {% if person[12] == 'BC' %}selected{% endif %}>BC</option>
+      </select>
+    </div>
   </div>
 
   <div class="mb-3 w-75">

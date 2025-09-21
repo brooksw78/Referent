@@ -20,8 +20,9 @@
       <th>Name</th>
       <th>Type</th>
       <th class="text-center">Epigraphs</th>
-      <th>Wikipedia</th>
       <th class="text-center">Referents</th>
+      <th>Born</th>
+      <th>Died</th>
       <th>&nbsp;</th>
     </tr>
   </thead>
@@ -31,28 +32,43 @@
      <td>
         <div class="mt-1">
             <strong><a href="{{ url_for('main.view_person', person_id=person[0]) }}">{{ person[1] }}</a></strong>
-            {% if person[6] %}
-            <div class="text-muted small">{{ person[6] }}</div>
+            {% if person[10] %}
+            <div class="text-muted small">{{ person[10] }}</div>
             {% endif %}
         </div>
       </td>
       <td>{{ person[2] or '—' }}</td>
       <td class="text-center">
-        <a href="{{ url_for('main.view_person', person_id=person[0]) }}" class="text-decoration-none">
-          <span class="badge bg-info rounded-pill">{{ person[5] if person[5] is not none else '-' }}</span>
-        </a>
-      </td>
-      <td>
-        {% if person[3] %}
-          <a href="{{ person[3] }}" target="_blank">View</a>
+        {% if person[5] %}
+          <a href="{{ url_for('main.view_person', person_id=person[0]) }}" class="text-decoration-none">
+            <span class="badge bg-info rounded-pill">{{ person[5] }}</span>
+          </a>
         {% else %}
           <span class="text-muted">—</span>
         {% endif %}
       </td>
       <td align="center">
-        <a href="{{ url_for('main.view_person', person_id=person[0]) }}" class="text-decoration-none">
-          <span class="badge bg-primary rounded-pill"><strong>{{ person[4] }}</strong></span>
-        </a>
+        {% if person[4] %}
+          <a href="{{ url_for('main.view_person', person_id=person[0]) }}" class="text-decoration-none">
+            <span class="badge bg-primary rounded-pill"><strong>{{ person[4] }}</strong></span>
+          </a>
+        {% else %}
+          <span class="text-muted">—</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if person[6] %}
+          {{ person[6] }}{% if person[8] == 'BC' %} BC{% endif %}
+        {% else %}
+          —
+        {% endif %}
+      </td>
+      <td>
+        {% if person[7] %}
+          {{ person[7] }}{% if person[9] == 'BC' %} BC{% endif %}
+        {% else %}
+          —
+        {% endif %}
       </td>
       <td align="right">
         <div class="mt-1">
@@ -68,7 +84,7 @@
     {% endfor %}
     {% if not people %}
     <tr>
-      <td colspan="6" class="text-center text-muted">No people found.</td>
+      <td colspan="7" class="text-center text-muted">No people found.</td>
     </tr>
     {% endif %}
   </tbody>

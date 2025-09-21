@@ -22,7 +22,7 @@
     <select class="form-select" name="book_id" required>
       {% for book in books %}
       <option value="{{ book[0] }}" {% if book[0] == citation[2] %}selected{% endif %}>
-        {{ book[1] }}{% if book[8] %} (Complete){% endif %}
+        {{ book[1] }}{% if book[10] %} (Complete){% endif %}
       </option>
       {% endfor %}
     </select>

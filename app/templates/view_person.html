@@ -4,18 +4,31 @@
 <h2 class="d-flex justify-content-between align-items-center">
   <span>
     {{ person[1] }}
-    {% if person[5] or person[6] %}
+    {% if person[5] or person[6] or age_label %}
     <small class="d-block text-muted">
-      {% if person[5] %}Born {{ person[5] }}{% endif %}
-      {% if person[6] %}
-        {% if person[5] %} · {% endif %}Died {{ person[6] }}
+      {% if person[5] and person[6] %}
+        {{ person[5] }}{% if birth_year_era == 'BC' %} BC{% endif %} – {{ person[6] }}{% if death_year_era == 'BC' %} BC{% endif %}
+        {% if age_label %} · {{ age_label }}{% endif %}
+      {% else %}
+        {% if person[5] %}
+          Born {{ person[5] }}{% if birth_year_era == 'BC' %} BC{% endif %}
+        {% endif %}
+        {% if person[6] %}
+          {% if person[5] %} · {% endif %}Died {{ person[6] }}{% if death_year_era == 'BC' %} BC{% endif %}
+        {% endif %}
+        {% if age_label %}
+          {% if person[5] or person[6] %} · {% endif %}{{ age_label }}
+        {% endif %}
+        {% if not person[5] and not person[6] and (birth_year_era == 'BC' or death_year_era == 'BC') %}
+          BC
+        {% endif %}
       {% endif %}
     </small>
     {% endif %}
   </span>
   <div class="d-flex gap-2">
     <a href="{{ url_for('main.edit_person', person_id=person[0]) }}" class="btn btn-outline-primary">Edit</a>
-    <a href="{{ url_for('main.people') }}" class="btn btn-secondary">Back to People</a>
+    <a href="{{ url_for('main.people') }}" class="btn btn-outline-primary">Back to People</a>
   </div>
 </h2>
 
@@ -27,12 +40,6 @@
       {% endif %}
       {% if person[10] %}
       <li class="list-group-item"><strong>Nationality:</strong> {{ person[10] }}</li>
-      {% endif %}
-      {% if person[5] %}
-      <li class="list-group-item"><strong>Birth Year:</strong> {{ person[5] }}</li>
-      {% endif %}
-      {% if person[6] %}
-      <li class="list-group-item"><strong>Death Year:</strong> {{ person[6] }}</li>
       {% endif %}
       {% if person[3] %}
       <li class="list-group-item"><strong>Wikipedia:</strong> <a href="{{ person[3] }}" target="_blank" rel="noreferrer">{{ person[3] }}</a></li>

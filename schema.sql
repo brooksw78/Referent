@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS people (
     nationality_id INTEGER,
     birth_year INTEGER,
     death_year INTEGER,
+    birth_year_era TEXT NOT NULL DEFAULT 'AD',
+    death_year_era TEXT NOT NULL DEFAULT 'AD',
     notes TEXT,
     created_at TEXT,
     updated_at TEXT,

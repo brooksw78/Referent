@@ -14,7 +14,6 @@
         <th>Author(s)</th>
         <th>Translator(s)</th>
         <th>Year</th>
-        <th>ISBN</th>
         <th class="text-center">Epigraphs</th>
         <th class="text-center">Referents</th>
         <th class="text-end">Actions</th>
@@ -26,19 +25,38 @@
         <td class="align-middle">
           <div class="d-flex flex-column">
             <a href="{{ url_for('main.view_book', book_id=book[0]) }}" class="fw-semibold text-decoration-none">{{ book[1] }}</a>
-            {% if book[8] %}
+            {% if book[10] %}
             <span class="badge bg-success mt-1 align-self-start">Complete</span>
             {% endif %}
           </div>
         </td>
-        <td>{{ book[4] or '—' }}</td>
-        <td>{{ book[5] or '—' }}</td>
+        <td>
+          {% if book[5] %}
+            {% set author_pairs = book[5].split('|') %}
+            {% for pair in author_pairs %}
+              {% set parts = pair.split('::') %}
+              <a href="{{ url_for('main.view_person', person_id=parts[0]) }}">{{ parts[1] }}</a>{% if not loop.last %}, {% endif %}
+            {% endfor %}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td>
+          {% if book[7] %}
+            {% set translator_pairs = book[7].split('|') %}
+            {% for pair in translator_pairs %}
+              {% set parts = pair.split('::') %}
+              <a href="{{ url_for('main.view_person', person_id=parts[0]) }}">{{ parts[1] }}</a>{% if not loop.last %}, {% endif %}
+            {% endfor %}
+          {% else %}
+            —
+          {% endif %}
+        </td>
         <td>{{ book[2] or '—' }}</td>
-        <td>{{ book[3] or '—' }}</td>
-        <td class="text-center"><span class="badge bg-info rounded-pill">{{ book[7] if book[7] is not none else '-' }}</span></td>
-        <td class="text-center"><span class="badge bg-primary rounded-pill">{{ book[6] if book[6] is not none else '-' }}</span></td>
+        <td class="text-center"><span class="badge bg-info rounded-pill">{{ book[9] if book[9] is not none else '-' }}</span></td>
+        <td class="text-center"><span class="badge bg-primary rounded-pill">{{ book[8] if book[8] is not none else '-' }}</span></td>
         <td class="text-end">
-          <a href="{{ url_for('main.edit_book', book_id=book[0]) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+          <a href="{{ url_for('main.edit_book', book_id=book[0]) }}" class="btn btn-sm btn-outline-primary">Edit</a>
         </td>
       </tr>
       {% endfor %}

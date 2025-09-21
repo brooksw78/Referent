@@ -2,6 +2,7 @@ import sqlite3
 from collections import defaultdict
 from urllib.parse import urlparse, unquote
 
+from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, abort, flash
 from . import db
 from .wikipedia_utils import get_wikipedia_info 
@@ -54,6 +55,24 @@ def _extract_wikipedia_title(value):
         return None
 
     return value
+
+
+def _normalize_era(value):
+    value = (value or "AD").upper()
+    return "BC" if value == "BC" else "AD"
+
+
+def _to_common_era_year(year, era):
+    if year is None:
+        return None
+    try:
+        year_int = int(year)
+    except (TypeError, ValueError):
+        return None
+    era = _normalize_era(era)
+    if era == "BC":
+        return -(year_int - 1)
+    return year_int
 
 
 def _update_contributors(book_id, names, role, default_type):
@@ -200,6 +219,8 @@ def add_person():
         birth_year = request.form.get("birth_year") or None
         death_year = request.form.get("death_year") or None
         notes = (request.form.get("notes") or "").strip() or None
+        birth_year_era = _normalize_era(request.form.get("birth_year_era"))
+        death_year_era = _normalize_era(request.form.get("death_year_era"))
 
         if nationality_id == "_new" and new_nationality:
             nationality_id = db.add_nationality(new_nationality)
@@ -212,12 +233,25 @@ def add_person():
         birth_year = int(birth_year) if birth_year else None
         death_year = int(death_year) if death_year else None
         
-        redirect_to = request.form.get("redirect_to") or url_for("main.people")
+        redirect_to = request.form.get("redirect_to")
+        if not redirect_to or redirect_to.lower() == "none":
+            redirect_to = url_for("main.people")
 
         wiki_url, bio, wiki_birth, wiki_death = get_wikipedia_info(name)
         birth_year = birth_year if birth_year is not None else wiki_birth
         death_year = death_year if death_year is not None else wiki_death
-        person_id = db.add_person(name, wiki_url, bio, type_id, nationality_id, birth_year, death_year, notes)
+        person_id = db.add_person(
+            name,
+            wiki_url,
+            bio,
+            type_id,
+            nationality_id,
+            birth_year,
+            death_year,
+            notes,
+            birth_year_era=birth_year_era,
+            death_year_era=death_year_era,
+        )
 
         if "add_citation" in redirect_to:
             return redirect(f"{redirect_to}?person_id={person_id}")
@@ -245,6 +279,8 @@ def inline_add_person():
     notes = (data.get("notes") or "").strip() or None
     nationality_id = data.get("nationality_id")
     new_nationality_name = (data.get("new_nationality_name") or "").strip()
+    birth_year_era = _normalize_era(data.get("birth_year_era"))
+    death_year_era = _normalize_era(data.get("death_year_era"))
 
     birth_year = int(birth_year) if birth_year else None
     death_year = int(death_year) if death_year else None
@@ -278,7 +314,18 @@ def inline_add_person():
     wiki_url, bio, wiki_birth, wiki_death = get_wikipedia_info(name)
     birth_year = birth_year if birth_year is not None else wiki_birth
     death_year = death_year if death_year is not None else wiki_death
-    person_id = db.add_person(name, wiki_url, bio, type_id, nationality_id, birth_year, death_year, notes)
+    person_id = db.add_person(
+        name,
+        wiki_url,
+        bio,
+        type_id,
+        nationality_id,
+        birth_year,
+        death_year,
+        notes,
+        birth_year_era=birth_year_era,
+        death_year_era=death_year_era,
+    )
 
     return {"id": person_id, "name": name}
 
@@ -305,12 +352,37 @@ def view_person(person_id):
     for role, book_id, title in contribution_rows:
         contributions[role].append((book_id, title))
 
+    birth_year = person[5]
+    death_year = person[6]
+    birth_year_era = person[11]
+    death_year_era = person[12]
+    age = None
+    age_label = None
+    current_year = datetime.now().year
+    if isinstance(death_year, str) and death_year and death_year.lower() == "present":
+        death_year = None
+    birth_value = _to_common_era_year(birth_year, birth_year_era)
+    death_value = _to_common_era_year(death_year, death_year_era) if death_year is not None else None
+
+    if birth_value is not None:
+        if death_value is not None:
+            if death_value >= birth_value:
+                age = death_value - birth_value
+                age_label = f"Age at death: {age}"
+        else:
+            age = current_year - birth_value
+            age_label = f"Age: {age}"
+
     return render_template(
         "view_person.html",
         person=person,
         citations=citations,
         epigraphs=epigraphs,
-        contributions=contributions
+        contributions=contributions,
+        age=age,
+        age_label=age_label,
+        birth_year_era=birth_year_era,
+        death_year_era=death_year_era
     )
 
 # -------- EDIT PERSON --------
@@ -332,6 +404,8 @@ def edit_person(person_id):
         death_year = request.form.get("death_year") or None
         notes = (request.form.get("notes") or "").strip() or None
         wiki_url_input = (request.form.get("wiki_url") or "").strip() or None
+        birth_year_era = _normalize_era(request.form.get("birth_year_era"))
+        death_year_era = _normalize_era(request.form.get("death_year_era"))
 
         existing_url = person[3] or None
         wiki_url = wiki_url_input
@@ -360,7 +434,9 @@ def edit_person(person_id):
             death_year,
             notes,
             wiki_url=wiki_url,
-            bio_summary=bio_summary
+            bio_summary=bio_summary,
+            birth_year_era=birth_year_era,
+            death_year_era=death_year_era
         )
         return redirect(url_for("main.people"))
 
@@ -397,6 +473,9 @@ def add_citation():
         notes = request.form.get("notes")
         indirect_citation = request.form.get("indirect_citation") == "on"
         db.add_citation(person_id, book_id, page_number, indirect_citation, notes)
+        if request.form.get("save_and_add") == "another":
+            flash("Citation saved. Add another.", "success")
+            return redirect(url_for("main.add_citation", book_id=book_id))
         return redirect(url_for("main.citations"))
 
     if preselected_book_id and preselected_book_id not in {book[0] for book in books}:

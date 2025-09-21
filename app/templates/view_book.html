@@ -30,9 +30,9 @@
 </div>
 
 <div class="d-flex gap-2 my-3">
-  <a href="{{ url_for('main.edit_book', book_id=book[0]) }}" class="btn btn-outline-secondary">Edit Book</a>
+  <a href="{{ url_for('main.edit_book', book_id=book[0]) }}" class="btn btn-outline-primary">Edit Book</a>
   {% if not book[6] %}
-    <a href="{{ url_for('main.add_epigraph') }}?book_id={{ book[0] }}" class="btn btn-outline-secondary">Add Epigraph</a>
+    <a href="{{ url_for('main.add_epigraph') }}?book_id={{ book[0] }}" class="btn btn-primary">Add Epigraph</a>
     <a href="{{ url_for('main.add_citation') }}?book_id={{ book[0] }}" class="btn btn-primary">Add Referent</a>
   {% endif %}
 </div>
@@ -96,7 +96,7 @@
         </div>
         <div class="btn-group">
             <a href="{{ url_for('main.view_person', person_id=citation[3]) }}" class="btn btn-sm btn-outline-primary">View Person</a>
-            <a href="{{ url_for('main.edit_citation', citation_id=citation[0]) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+            <a href="{{ url_for('main.edit_citation', citation_id=citation[0]) }}" class="btn btn-sm btn-outline-primary">Edit</a>
         </div>
     </li>
   {% endfor %}

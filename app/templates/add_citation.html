@@ -44,9 +44,21 @@
               <input type="text" id="inline-new-nationality" class="form-control" placeholder="New nationality">
             </div>
 
-            <div class="mb-2 d-flex">
-                <input type="number" id="inline-birth-year" class="form-control me-2" placeholder="Birth Year">
-                <input type="number" id="inline-death-year" class="form-control" placeholder="Death Year">
+            <div class="mb-2 d-flex flex-wrap gap-2">
+                <div class="input-group" style="max-width: 200px;">
+                    <input type="number" id="inline-birth-year" class="form-control" placeholder="Birth Year">
+                    <select class="form-select" id="inline-birth-era" aria-label="Birth year era">
+                        <option value="AD" selected>AD</option>
+                        <option value="BC">BC</option>
+                    </select>
+                </div>
+                <div class="input-group" style="max-width: 200px;">
+                    <input type="number" id="inline-death-year" class="form-control" placeholder="Death Year">
+                    <select class="form-select" id="inline-death-era" aria-label="Death year era">
+                        <option value="AD" selected>AD</option>
+                        <option value="BC">BC</option>
+                    </select>
+                </div>
             </div>
 
             <div id="inline-wiki-preview" class="small text-muted mb-2" style="display: none;"></div>
@@ -69,7 +81,7 @@
         <option value="" disabled {% if not preselected_book_id %}selected{% endif %}>— Select a book —</option>
         {% for book in books %}
         <option value="{{ book[0] }}" {% if preselected_book_id == book[0] %}selected{% endif %}>
-            {{ book[1] }}{% if book[8] %} (Complete){% endif %}
+            {{ book[1] }}{% if book[10] %} (Complete){% endif %}
         </option>
         {% endfor %}
     </select>
@@ -93,6 +105,7 @@
     </div>
 
   <button type="submit" class="btn btn-primary">Add Citation</button>
+  <button type="submit" name="save_and_add" value="another" class="btn btn-outline-primary">Add & Add Another</button>
   <a href="{{ url_for('main.citations') }}" class="btn btn-secondary">Cancel</a>
 </form>
 
@@ -148,6 +161,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const typeInput = document.getElementById("inline-person-type");
   const birthInput = document.getElementById("inline-birth-year");
   const deathInput = document.getElementById("inline-death-year");
+  const birthEraInput = document.getElementById("inline-birth-era");
+  const deathEraInput = document.getElementById("inline-death-era");
   const wikiPreview = document.getElementById("inline-wiki-preview");
   const personNameInput = document.getElementById("person_name");
   const personIdInput = document.getElementById("person_id");
@@ -209,6 +224,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         birthInput.value = data.birth_year || '';
         deathInput.value = data.death_year || '';
+        birthEraInput.value = 'AD';
+        deathEraInput.value = 'AD';
       })
       .catch(() => {
         wikiPreview.style.display = "none";
@@ -236,6 +253,8 @@ document.addEventListener("DOMContentLoaded", function () {
         new_nationality_name: newNationalityInput.value || null,
         birth_year,
         death_year,
+        birth_year_era: birthEraInput.value,
+        death_year_era: deathEraInput.value,
         notes: notesInput.value || null
       })
     })
@@ -257,6 +276,8 @@ document.addEventListener("DOMContentLoaded", function () {
       nationalityInput.value = "";
       birthInput.value = "";
       deathInput.value = "";
+      birthEraInput.value = "AD";
+      deathEraInput.value = "AD";
       notesInput.value = "";
       newTypeInput.value = "";
       newTypeContainer.style.display = "none";
@@ -286,6 +307,8 @@ document.addEventListener("DOMContentLoaded", function () {
     nationalityInput.value = "";
     birthInput.value = "";
     deathInput.value = "";
+    birthEraInput.value = "AD";
+    deathEraInput.value = "AD";
     notesInput.value = "";
     newTypeInput.value = "";
     newTypeContainer.style.display = "none";
