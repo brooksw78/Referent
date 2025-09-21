@@ -10,6 +10,11 @@
   </div>
 
   <div class="mb-3">
+    <label for="wiki_url" class="form-label">Wikipedia URL</label>
+    <input type="url" class="form-control" name="wiki_url" value="{{ person[3] or '' }}" placeholder="https://en.wikipedia.org/wiki/Example">
+  </div>
+
+  <div class="mb-3">
     <label for="type_id" class="form-label">Person Type</label>
     <select class="form-select" name="type_id">
       <option value="">— Select type —</option>
@@ -21,28 +26,55 @@
     </select>
   </div>
 
+  <div class="mb-3">
+    <label for="nationality_id" class="form-label">Nationality</label>
+    <select class="form-select" name="nationality_id">
+      <option value="">— Select nationality —</option>
+      {% for nationality in nationalities %}
+      <option value="{{ nationality[0] }}" {% if nationality[0] == person[9] %}selected{% endif %}>
+        {{ nationality[1] }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="mb-3 w-25">
+    <label for="birth_year" class="form-label">Birth Year</label>
+    <input type="number" class="form-control" name="birth_year" id="birth_year" min="0" max="2100" value="{{ person[5] or '' }}">
+  </div>
+
+  <div class="mb-3 w-25">
+    <label for="death_year" class="form-label">Death Year</label>
+    <input type="number" class="form-control" name="death_year" id="death_year" min="0" max="2100" value="{{ person[6] or '' }}">
+  </div>
+
+  <div class="mb-3 w-75">
+    <label for="notes" class="form-label">Notes <span class="text-muted">(optional)</span></label>
+    <textarea class="form-control" name="notes" id="notes" rows="3">{{ person[7] or '' }}</textarea>
+  </div>
+
   <button type="submit" class="btn btn-primary">Save Changes</button>
   <a href="{{ url_for('main.people') }}" class="btn btn-secondary">Cancel</a>
-</form><br />
+</form>
+
 {% if person[3] or person[4] %}
-
-
-  {% if person[3] %}
-    <div class="card bg-light mb-3" style="max-width: 80rem;">
-        <div class="card-header">Wikipedia</div>
-        <div class="card-body">
-            <p class="card-text"><a class="card-link" href="{{ person[3] }}" target="_blank">{{ person[3] }}</a></p>
-        </div>
-    </div>
-  {% endif %}
-  {% if person[4] %}
-    <div class="card text-white bg-primary mb-3" style="max-width: 80rem;">
-        <div class="card-header">Summary</div>
-        <div class="card-body">
-            <p class="card-text">{{ person[4] }}</p>
-        </div>
-    </div>
-  {% endif %}
-</div>
+  <div class="mt-4" style="max-width: 80rem;">
+    {% if person[3] %}
+      <div class="card bg-light mb-3">
+          <div class="card-header">Wikipedia</div>
+          <div class="card-body">
+              <p class="card-text"><a class="card-link" href="{{ person[3] }}" target="_blank">{{ person[3] }}</a></p>
+          </div>
+      </div>
+    {% endif %}
+    {% if person[4] %}
+      <div class="card text-white bg-primary mb-3">
+          <div class="card-header">Summary</div>
+          <div class="card-body">
+              <p class="card-text">{{ person[4] }}</p>
+          </div>
+      </div>
+    {% endif %}
+  </div>
 {% endif %}
 {% endblock %}

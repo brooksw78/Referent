@@ -7,7 +7,7 @@
 <form method="POST" action="{{ url_for('main.add_person') }}">
     <div class="mb-3 w-50">
         <label for="name" class="form-label">Name</label>
-        <input type="text" class="form-control" name="name" value="{{ request.args.get('name', '') }}" required>
+        <input type="text" class="form-control" name="name" value="{{ name or '' }}" required>
     </div>
 
     <div class="mb-3 w-25">
@@ -21,6 +21,22 @@
     </div>
 
     <div class="mb-3 w-25">
+        <label for="nationality_id" class="form-label">Nationality</label>
+        <select class="form-select" name="nationality_id" id="nationality_id">
+            <option value="">— Select nationality —</option>
+            {% for nationality in nationalities %}
+            <option value="{{ nationality[0] }}">{{ nationality[1] }}</option>
+            {% endfor %}
+            <option value="_new">+ Add new nationality...</option>
+        </select>
+    </div>
+
+    <div class="mb-3 w-25" id="new-nationality-container" style="display: none;">
+        <label for="new_nationality" class="form-label">New Nationality</label>
+        <input type="text" class="form-control" name="new_nationality" id="new_nationality" autocomplete="off">
+    </div>
+
+    <div class="mb-3 w-25">
         <label for="birth_year" class="form-label">Birth Year</label>
         <input type="number" class="form-control" name="birth_year" id="birth_year" min="0" max="2100">
     </div>
@@ -28,6 +44,11 @@
     <div class="mb-3 w-25">
         <label for="death_year" class="form-label">Death Year</label>
         <input type="number" class="form-control " name="death_year" id="death_year" min="0" max="2100">
+    </div>
+
+    <div class="mb-3 w-75">
+        <label for="notes" class="form-label">Notes <span class="text-muted">(optional)</span></label>
+        <textarea class="form-control" name="notes" id="notes" rows="3"></textarea>
     </div>
 
     <div id="wiki-preview" class="border rounded p-3 mt-3 bg-light" style="display: none;">
@@ -55,6 +76,19 @@ document.addEventListener("DOMContentLoaded", function () {
   const yearsEl = document.getElementById("wiki-years");
   const birthInput = document.getElementById("birth_year");
   const deathInput = document.getElementById("death_year");
+  const nationalitySelect = document.getElementById("nationality_id");
+  const newNationalityContainer = document.getElementById("new-nationality-container");
+  const newNationalityInput = document.getElementById("new_nationality");
+
+  nationalitySelect.addEventListener("change", function () {
+    if (this.value === "_new") {
+      newNationalityContainer.style.display = "block";
+      newNationalityInput.focus();
+    } else {
+      newNationalityContainer.style.display = "none";
+      newNationalityInput.value = "";
+    }
+  });
 
   nameField.addEventListener("blur", function () {
     const name = nameField.value.trim();

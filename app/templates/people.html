@@ -3,13 +3,23 @@
 {% block content %}
 <h2>People</h2>
 
-<a href="{{ url_for('main.add_person') }}" class="btn btn-success mb-3">Add Person</a>
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+  <form method="GET" class="d-flex gap-2 flex-grow-1" role="search">
+    <input type="text" class="form-control" name="q" placeholder="Search people..." value="{{ search_query or '' }}">
+    <button type="submit" class="btn btn-outline-primary">Search</button>
+    {% if search_query %}
+    <a href="{{ url_for('main.people') }}" class="btn btn-outline-secondary">Clear</a>
+    {% endif %}
+  </form>
+  <a href="{{ url_for('main.add_person') }}" class="btn btn-success">Add Person</a>
+</div>
 
 <table class="table table-striped">
   <thead>
     <tr>
       <th>Name</th>
       <th>Type</th>
+      <th class="text-center">Epigraphs</th>
       <th>Wikipedia</th>
       <th class="text-center">Referents</th>
       <th>&nbsp;</th>
@@ -20,12 +30,18 @@
     <tr>
      <td>
         <div class="mt-1">
-
-            <strong>{{ person[1] }}</strong>    
-        
+            <strong><a href="{{ url_for('main.view_person', person_id=person[0]) }}">{{ person[1] }}</a></strong>
+            {% if person[6] %}
+            <div class="text-muted small">{{ person[6] }}</div>
+            {% endif %}
         </div>
-        </td>
+      </td>
       <td>{{ person[2] or '—' }}</td>
+      <td class="text-center">
+        <a href="{{ url_for('main.view_person', person_id=person[0]) }}" class="text-decoration-none">
+          <span class="badge bg-info rounded-pill">{{ person[5] if person[5] is not none else '-' }}</span>
+        </a>
+      </td>
       <td>
         {% if person[3] %}
           <a href="{{ person[3] }}" target="_blank">View</a>
@@ -34,11 +50,14 @@
         {% endif %}
       </td>
       <td align="center">
-        <a href="{{ url_for('main.citations_for_person', person_id=person[0]) }}"><span class="badge bg-primary rounded-pill"><strong> {{ person[4] }} </strong></span></a>
+        <a href="{{ url_for('main.view_person', person_id=person[0]) }}" class="text-decoration-none">
+          <span class="badge bg-primary rounded-pill"><strong>{{ person[4] }}</strong></span>
+        </a>
       </td>
       <td align="right">
         <div class="mt-1">
-            <a href="{{ url_for('main.edit_person', person_id=person[0]) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+            <a href="{{ url_for('main.view_person', person_id=person[0]) }}" class="btn btn-sm btn-outline-primary">View</a>
+            <a href="{{ url_for('main.edit_person', person_id=person[0]) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
             &nbsp;
             <form action="{{ url_for('main.delete_person', person_id=person[0]) }}" method="POST" style="display:inline;">
             <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this person?')">Delete</button>
@@ -47,6 +66,11 @@
         </td>
     </tr>
     {% endfor %}
+    {% if not people %}
+    <tr>
+      <td colspan="6" class="text-center text-muted">No people found.</td>
+    </tr>
+    {% endif %}
   </tbody>
 </table>
 {% endblock %}

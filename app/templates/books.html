@@ -10,33 +10,36 @@
   <table class="table table-striped align-middle">
     <thead>
       <tr>
-        <th>Cover</th>
         <th>Title</th>
         <th>Author(s)</th>
         <th>Translator(s)</th>
         <th>Year</th>
         <th>ISBN</th>
+        <th class="text-center">Epigraphs</th>
         <th class="text-center">Referents</th>
+        <th class="text-end">Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for book in books %}
       <tr>
-        <td style="width: 80px;">
-          {% if book[4] %}
-          <img src="{{ book[4] }}" alt="Cover" style="height: 75px;">
-          {% else %}
-          <span class="text-muted">—</span>
-          {% endif %}
+        <td class="align-middle">
+          <div class="d-flex flex-column">
+            <a href="{{ url_for('main.view_book', book_id=book[0]) }}" class="fw-semibold text-decoration-none">{{ book[1] }}</a>
+            {% if book[8] %}
+            <span class="badge bg-success mt-1 align-self-start">Complete</span>
+            {% endif %}
+          </div>
         </td>
-        <td>
-            <a href="{{ url_for('main.view_book', book_id=book[0]) }}">{{ book[1] }}</a><br>
-        </td>
+        <td>{{ book[4] or '—' }}</td>
         <td>{{ book[5] or '—' }}</td>
-        <td>{{ book[6] or '—' }}</td>
         <td>{{ book[2] or '—' }}</td>
         <td>{{ book[3] or '—' }}</td>
-        <td class="text-center"><span class="badge bg-primary rounded-pill">{{ book[7] or '-' }}</span></td>
+        <td class="text-center"><span class="badge bg-info rounded-pill">{{ book[7] if book[7] is not none else '-' }}</span></td>
+        <td class="text-center"><span class="badge bg-primary rounded-pill">{{ book[6] if book[6] is not none else '-' }}</span></td>
+        <td class="text-end">
+          <a href="{{ url_for('main.edit_book', book_id=book[0]) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+        </td>
       </tr>
       {% endfor %}
     </tbody>

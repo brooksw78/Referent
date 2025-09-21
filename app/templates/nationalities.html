@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Nationalities</h2>
+
+<form method="POST" class="mb-4">
+  <input type="hidden" name="action" value="add">
+  <div class="input-group">
+    <input type="text" name="name" class="form-control" placeholder="New nationality" required>
+    <button class="btn btn-primary" type="submit">Add</button>
+  </div>
+</form>
+
+{% if nationalities %}
+  <div class="list-group">
+    {% for nationality in nationalities %}
+    <form method="POST" class="list-group-item list-group-item-action d-flex flex-column flex-md-row gap-2 align-items-md-center">
+      <input type="hidden" name="nationality_id" value="{{ nationality[0] }}">
+      <div class="flex-grow-1">
+        <input type="text" name="name" class="form-control" value="{{ nationality[1] }}">
+      </div>
+      <div class="d-flex gap-2">
+        <button type="submit" name="action" value="update" class="btn btn-sm btn-outline-primary">Save</button>
+        <button type="submit" name="action" value="delete" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this nationality?');">Delete</button>
+      </div>
+    </form>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="text-muted">No nationalities recorded yet.</p>
+{% endif %}
+{% endblock %}

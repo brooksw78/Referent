@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Epigraphs</h2>
+
+<a href="{{ url_for('main.add_epigraph') }}" class="btn btn-success mb-3">Add Epigraph</a>
+
+{% if epigraphs %}
+<div class="list-group">
+  {% for epigraph in epigraphs %}
+  <div class="list-group-item">
+    <div class="d-flex justify-content-between align-items-start">
+      <div class="flex-grow-1 me-3">
+        <div class="mb-2">
+          <strong><a href="{{ url_for('main.view_person', person_id=epigraph[3]) }}">{{ epigraph[4] }}</a></strong>
+          <span class="text-muted">—</span>
+          <a href="{{ url_for('main.view_book', book_id=epigraph[1]) }}"><em>{{ epigraph[2] }}</em></a>
+        </div>
+        <div class="p-3 bg-light border rounded" style="white-space: pre-wrap;">
+          {{- epigraph[5] -}}
+        </div>
+        {% if epigraph[6] %}
+        <div class="mt-2">
+          <button class="btn btn-sm btn-link p-0" data-bs-toggle="collapse" data-bs-target="#epigraph-note-{{ epigraph[0] }}">
+            <i class="bi bi-chat-left-text"></i> Notes
+          </button>
+          <div class="collapse mt-2" id="epigraph-note-{{ epigraph[0] }}">
+            <div class="card card-body bg-light" style="white-space: pre-wrap;">
+              {{- epigraph[6] -}}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      <div class="d-flex flex-column align-items-end gap-2">
+        <a href="{{ url_for('main.edit_epigraph', epigraph_id=epigraph[0]) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+        <form method="POST" action="{{ url_for('main.delete_epigraph', epigraph_id=epigraph[0]) }}" onsubmit="return confirm('Delete this epigraph?');" class="d-inline">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </div>
+    </div>
+    {% if epigraph[7] %}
+    <div class="small text-muted mt-2">Added {{ epigraph[7] }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-muted">No epigraphs recorded yet.</p>
+{% endif %}
+{% endblock %}
