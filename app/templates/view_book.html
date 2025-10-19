@@ -1,41 +1,226 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>{{ book[1] }}</h2>
+<h2>{{ book.title }}</h2>
 
-<div class="mb-4">
-  {% set author_contributors = contributors.get('author', []) %}
-  <p><strong>Author(s):</strong>
-    {% if author_contributors %}
-      {% for contributor in author_contributors %}
-        <a href="{{ url_for('main.view_person', person_id=contributor[0]) }}">{{ contributor[1] }}</a>{% if not loop.last %}, {% endif %}
-      {% endfor %}
-    {% else %}
-      —
-    {% endif %}
-  </p>
-  {% set translator_contributors = contributors.get('translator', []) %}
-  <p><strong>Translator(s):</strong>
-    {% if translator_contributors %}
-      {% for contributor in translator_contributors %}
-        <a href="{{ url_for('main.view_person', person_id=contributor[0]) }}">{{ contributor[1] }}</a>{% if not loop.last %}, {% endif %}
-      {% endfor %}
-    {% else %}
-      —
-    {% endif %}
-  </p>
-  <p><strong>Publication Year:</strong> {{ book[2] or '—' }}</p>
-  <p><strong>ISBN:</strong> {{ book[3] or '—' }}</p>
-  <p><strong>Status:</strong> {% if book[6] %}<span class="badge bg-success">Complete</span>{% else %}<span class="badge bg-secondary">In Progress</span>{% endif %}</p>
+{% set cover_image = url_for('static', filename='images/cover_image_not_found.png') %}
+{% if book.cover_image_path %}
+  {% set cover_image = url_for('static', filename=book.cover_image_path) %}
+{% elif book.cover_url %}
+  {% set cover_image = book.cover_url %}
+{% endif %}
+
+<div class="row mb-4 align-items-start g-4">
+  <div class="col-md-3 col-lg-2">
+    <img src="{{ cover_image }}" alt="{{ book.title }} cover" class="img-fluid rounded shadow-sm w-100">
+  </div>
+  <div class="col-md-6 col-lg-7">
+    {% set author_contributors = contributors.get('author', []) %}
+    <p><strong>Author(s):</strong>
+      {% if author_contributors %}
+        {% for contributor in author_contributors %}
+          <a href="{{ url_for('main.view_person', person_id=contributor[0]) }}">{{ contributor[1] }}</a>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+      {% else %}
+        —
+      {% endif %}
+    </p>
+    {% set translator_contributors = contributors.get('translator', []) %}
+    <p><strong>Translator(s):</strong>
+      {% if translator_contributors %}
+        {% for contributor in translator_contributors %}
+          <a href="{{ url_for('main.view_person', person_id=contributor[0]) }}">{{ contributor[1] }}</a>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+      {% else %}
+        —
+      {% endif %}
+    </p>
+    <p><strong>Publication Year:</strong> {{ book.publication_year or '—' }}</p>
+    <p><strong>ISBN:</strong> {{ book.isbn or '—' }}</p>
+    <p><strong>Status:</strong> {% if book.is_complete %}<span class="badge bg-success">Complete</span>{% else %}<span class="badge bg-secondary">In Progress</span>{% endif %}</p>
+  </div>
+  <div class="col-md-9 col-lg-3">
+    <div class="row g-3">
+      <div class="col-12">
+        <div class="stats-card">
+          <div class="stats-value">{{ reference_stats.total_referents }}</div>
+          <div class="stats-label">Total Referents</div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="stats-card">
+          <div class="stats-value">{{ reference_stats.unique_referents }}</div>
+          <div class="stats-label">Unique Referents</div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="stats-card">
+          <div class="stats-value">{{ reference_stats.shared_referents }}</div>
+          <div class="stats-label">Shared In Other Works</div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="d-flex gap-2 my-3">
-  <a href="{{ url_for('main.edit_book', book_id=book[0]) }}" class="btn btn-outline-primary">Edit Book</a>
-  {% if not book[6] %}
-    <a href="{{ url_for('main.add_epigraph') }}?book_id={{ book[0] }}" class="btn btn-primary">Add Epigraph</a>
-    <a href="{{ url_for('main.add_citation') }}?book_id={{ book[0] }}" class="btn btn-primary">Add Referent</a>
+  <a href="{{ url_for('main.edit_book', book_id=book.id) }}" class="btn btn-outline-primary">Edit Book</a>
+  {% if not book.is_complete %}
+    <a href="{{ url_for('main.add_epigraph') }}?book_id={{ book.id }}" class="btn btn-primary">Add Epigraph</a>
+    <a href="{{ url_for('main.add_citation') }}?book_id={{ book.id }}" class="btn btn-primary">Add Referent</a>
   {% endif %}
 </div>
+
+<div class="card shadow-sm mb-4">
+  <button
+    class="summary-toggle d-flex align-items-center justify-content-between"
+    type="button"
+    data-bs-toggle="collapse"
+    data-bs-target="#summary-collapse"
+    aria-expanded="false"
+    aria-controls="summary-collapse"
+  >
+    <div class="text-start">
+      <h5 class="card-title mb-0">Reference Mix</h5>
+      <span class="text-muted small">People types &amp; nationalities</span>
+    </div>
+    <i class="bi bi-chevron-right summary-toggle-icon" aria-hidden="true"></i>
+  </button>
+  <div class="collapse" id="summary-collapse">
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <h6 class="summary-heading">People Types</h6>
+          <div id="summary-person-types" class="summary-donut" data-empty-text="No referenced person types yet."></div>
+        </div>
+        <div class="col-lg-6">
+          <h6 class="summary-heading">Nationalities</h6>
+          <div id="summary-nationalities" class="summary-donut" data-empty-text="No referenced nationalities yet."></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+  <button
+    class="summary-toggle d-flex align-items-center justify-content-between"
+    type="button"
+    data-bs-toggle="collapse"
+    data-bs-target="#heatmap-collapse"
+    aria-expanded="false"
+    aria-controls="heatmap-collapse"
+  >
+    <div class="text-start">
+      <h5 class="card-title mb-0">Temporal Heatmap</h5>
+      <span class="text-muted small">Lifespans of referenced people</span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      {% if heatmap_data.person_count %}
+        <span class="badge bg-light text-dark fw-normal">{{ heatmap_data.person_count }} tracked</span>
+      {% endif %}
+      <i class="bi bi-chevron-right summary-toggle-icon" aria-hidden="true"></i>
+    </div>
+  </button>
+  <div class="collapse" id="heatmap-collapse">
+    <div class="card-body">
+      {% if heatmap_data.bins %}
+        <div id="temporal-heatmap" class="temporal-heatmap" aria-label="Temporal heatmap for referenced people"></div>
+        {% if heatmap_data.skipped_count %}
+          <p class="text-muted small mt-3 mb-0">
+            Missing birth/death years for {{ heatmap_data.skipped_count }} referenced {{ 'person' if heatmap_data.skipped_count == 1 else 'people' }}.
+          </p>
+        {% endif %}
+      {% else %}
+        <p class="text-muted mb-0">Not enough date data to build the heatmap yet.</p>
+        {% if heatmap_data.skipped_count %}
+          <p class="text-muted small mt-2 mb-0">
+            Missing birth/death years for {{ heatmap_data.skipped_count }} referenced {{ 'person' if heatmap_data.skipped_count == 1 else 'people' }}.
+          </p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if shared_books %}
+<div class="card shadow-sm mb-4">
+  <button
+    class="summary-toggle d-flex align-items-center justify-content-between"
+    type="button"
+    data-bs-toggle="collapse"
+    data-bs-target="#shared-referents-collapse"
+    aria-expanded="false"
+    aria-controls="shared-referents-collapse"
+  >
+    <div class="text-start">
+      <h5 class="card-title mb-0">Shared Referents</h5>
+      <span class="text-muted small">Other books citing the same people</span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge bg-light text-dark fw-normal">{{ shared_books|length }} related book{{ 's' if shared_books|length != 1 else '' }}</span>
+      <i class="bi bi-chevron-right summary-toggle-icon" aria-hidden="true"></i>
+    </div>
+  </button>
+  <div class="collapse" id="shared-referents-collapse">
+    <div class="card-body">
+      <div class="list-group list-group-flush shared-referents-list">
+        {% for related in shared_books %}
+          {% set overlap_pct = (related.shared_count / related.current_total * 100) if related.current_total else 0 %}
+          {% set partner_pct = (related.shared_count / related.other_total * 100) if related.other_total else 0 %}
+          {% set overlap_width = overlap_pct if overlap_pct >= 6 else (6 if related.shared_count > 0 else 0) %}
+          {% set collapse_id = "shared-referents-" ~ related.book_id %}
+          <div class="list-group-item shared-referents-item">
+            <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-2">
+              <div>
+                <a href="{{ url_for('main.view_book', book_id=related.book_id) }}" class="fw-semibold text-decoration-none shared-referents-title">
+                  {{ related.title }}
+                </a>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-light text-primary shared-referents-count">
+                  {{ related.shared_count }} shared
+                </span>
+                {% if related.shared_people %}
+                <button
+                  class="btn btn-sm btn-outline-secondary shared-referents-toggle"
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#{{ collapse_id }}"
+                  aria-expanded="false"
+                  aria-controls="{{ collapse_id }}"
+                >
+                  <i class="bi bi-chevron-right me-1 shared-referents-toggle-icon"></i>
+                  View details
+                </button>
+                {% endif %}
+              </div>
+            </div>
+            <div class="shared-referents-progress mb-1">
+              <div class="shared-referents-progress-track">
+                <div class="shared-referents-progress-fill" style="width: {{ overlap_width|round(1) }}%;"></div>
+              </div>
+              <div class="d-flex justify-content-between text-muted small">
+                <span>{{ overlap_pct|round(1) }}% of this book&apos;s referents</span>
+                <span>{{ partner_pct|round(1) }}% of {{ related.title }}&apos;s referents</span>
+              </div>
+            </div>
+            {% if related.shared_people %}
+            <div class="collapse mt-2" id="{{ collapse_id }}">
+              <ul class="shared-referents-people small mb-0">
+                {% for person in related.shared_people %}
+                  <li>{{ person }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {% if epigraphs %}
 <h4 class="mt-4">Epigraphs</h4>
@@ -43,26 +228,27 @@
   {% for epigraph in epigraphs %}
   <li class="list-group-item d-flex justify-content-between align-items-start">
     <div class="me-3 flex-grow-1">
-      <div class="mb-2"><strong>{{ epigraph[3] }}</strong></div>
+      <div class="mb-2"><strong>{{ epigraph.author_name }}</strong></div>
       <div class="p-3 bg-light border rounded" style="white-space: pre-wrap;">
-        {{- epigraph[1] -}}
+        {{- epigraph.quote -}}
       </div>
-      {% if epigraph[2] %}
+      {% if epigraph.notes %}
       <div class="mt-2">
-        <button class="btn btn-sm btn-link p-0" data-bs-toggle="collapse" data-bs-target="#book-epigraph-note-{{ epigraph[0] }}">
+        <button class="btn btn-sm btn-link p-0" data-bs-toggle="collapse" data-bs-target="#book-epigraph-note-{{ epigraph.id }}">
           <i class="bi bi-chat-left-text"></i> Notes
         </button>
-        <div class="collapse mt-2" id="book-epigraph-note-{{ epigraph[0] }}">
+        <div class="collapse mt-2" id="book-epigraph-note-{{ epigraph.id }}">
           <div class="card card-body bg-light" style="white-space: pre-wrap;">
-            {{- epigraph[2] -}}
+            {{- epigraph.notes -}}
           </div>
         </div>
       </div>
       {% endif %}
     </div>
     <div class="d-flex flex-column align-items-end gap-2">
-      <a href="{{ url_for('main.edit_epigraph', epigraph_id=epigraph[0]) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
-      <form method="POST" action="{{ url_for('main.delete_epigraph', epigraph_id=epigraph[0]) }}" onsubmit="return confirm('Delete this epigraph?');" class="d-inline">
+      <a href="{{ url_for('main.edit_epigraph', epigraph_id=epigraph.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+      <form method="POST" action="{{ url_for('main.delete_epigraph', epigraph_id=epigraph.id) }}" onsubmit="return confirm('Delete this epigraph?');" class="d-inline">
+        {{ csrf_input }}
         <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
       </form>
     </div>
@@ -77,27 +263,53 @@
 <h4 class="mt-4">Referents</h4>
 <ul class="list-group">
   {% for citation in citations %}
-    <li class="list-group-item d-flex justify-content-between align-items-center">
-        <div>
-            <strong>{{ citation[1] }}</strong> on page {{ citation[2] }}
-            {% if citation[5] %}
-              <i class="bi bi-journal-minus ms-2 text-info" title="Indirect citation"></i>
-            {% endif %}
-            {% if citation[4] %}
-            <button class="btn btn-sm btn-link p-0 ms-2" data-bs-toggle="collapse" data-bs-target="#note-{{ citation[0] }}">
-                <i class="bi bi-chat-left-text-fill" title="Show note"></i>
+    <li class="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+      <div class="w-100">
+        {% set descriptor_text = ((citation.nationality_name or '') ~ (' ' if citation.nationality_name and citation.type_name else '') ~ (citation.type_name or ''))|trim %}
+        {% if not descriptor_text %}
+          {% set descriptor_text = '—' %}
+        {% endif %}
+        {% set birth_text = citation.birth_year %}
+        {% if birth_text %}
+          {% set birth_text = birth_text ~ '' %}
+          {% if citation.birth_year_era == 'BC' %}
+            {% set birth_text = birth_text ~ ' BC' %}
+          {% endif %}
+        {% else %}
+          {% set birth_text = '—' %}
+        {% endif %}
+        {% set death_text = citation.death_year %}
+        {% if death_text %}
+          {% set death_text = death_text ~ '' %}
+          {% if citation.death_year_era == 'BC' %}
+            {% set death_text = death_text ~ ' BC' %}
+          {% endif %}
+        {% else %}
+          {% set death_text = '—' %}
+        {% endif %}
+        <div class="referent-line">
+          <strong>{{ citation.person_name }}</strong> ({{ descriptor_text }}; {{ birth_text }}-{{ death_text }}) on page {{ citation.page_number or '—' }}
+          {% if citation.indirect_citation %}
+            <i class="bi bi-journal-minus ms-2 text-info" title="Indirect citation"></i>
+          {% endif %}
+          {% if citation.notes %}
+            <button class="btn btn-sm btn-link p-0 ms-2" data-bs-toggle="collapse" data-bs-target="#note-{{ citation.id }}">
+              <i class="bi bi-chat-left-text-fill" title="Show note"></i>
             </button>
-            <div class="collapse mt-2 w-75" id="note-{{ citation[0] }}">
-                <div class="card card-body text-bg-info" style="white-space: pre-wrap;">
-                {{- citation[4] -}}
-                </div>
-            </div>
-            {% endif %}
+          {% endif %}
         </div>
-        <div class="btn-group">
-            <a href="{{ url_for('main.view_person', person_id=citation[3]) }}" class="btn btn-sm btn-outline-primary">View Person</a>
-            <a href="{{ url_for('main.edit_citation', citation_id=citation[0]) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+        {% if citation.notes %}
+        <div class="collapse mt-2" id="note-{{ citation.id }}">
+          <div class="card card-body text-bg-info" style="white-space: pre-wrap;">
+            {{- citation.notes -}}
+          </div>
         </div>
+        {% endif %}
+      </div>
+      <div class="btn-group">
+        <a href="{{ url_for('main.view_person', person_id=citation.person_id) }}" class="btn btn-sm btn-outline-primary">View</a>
+        <a href="{{ url_for('main.edit_citation', citation_id=citation.id) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+      </div>
     </li>
   {% endfor %}
 </ul>
@@ -106,4 +318,315 @@
 {% endif %}
 
 <a href="{{ url_for('main.books') }}" class="btn btn-outline-primary mt-3">Back to Books</a>
+
+<script>
+const summaryData = {{ summary_data|tojson }};
+const heatmapData = {{ heatmap_data|tojson }};
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderSummaryDonut(summaryData.person_types || [], 'summary-person-types');
+  renderSummaryDonut(summaryData.nationalities || [], 'summary-nationalities');
+  renderTemporalHeatmap(heatmapData, 'temporal-heatmap');
+  setupCollapsibleCards();
+});
+
+function renderSummaryDonut(items, targetId) {
+  const container = document.getElementById(targetId);
+  if (!container) {
+    return;
+  }
+  container.innerHTML = '';
+  if (!items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'text-muted small';
+    empty.textContent = container.dataset.emptyText || 'No data available yet.';
+    container.appendChild(empty);
+    return;
+  }
+
+  const total = items.reduce((sum, item) => sum + (item.total || 0), 0);
+  if (!total) {
+    const empty = document.createElement('div');
+    empty.className = 'text-muted small';
+    empty.textContent = container.dataset.emptyText || 'No data available yet.';
+    container.appendChild(empty);
+    return;
+  }
+
+  const palette = [
+    '#0d6efd',
+    '#6f42c1',
+    '#20c997',
+    '#fd7e14',
+    '#d63384',
+    '#0dcaf0',
+    '#ffc107',
+    '#343a40',
+    '#198754',
+    '#6610f2',
+  ];
+
+  const content = document.createElement('div');
+  content.className = 'summary-donut-content';
+
+  const chartWrapper = document.createElement('div');
+  chartWrapper.className = 'summary-donut-chart';
+
+  const size = 200;
+  const deviceRatio = window.devicePixelRatio || 1;
+  const canvas = document.createElement('canvas');
+  canvas.width = size * deviceRatio;
+  canvas.height = size * deviceRatio;
+  canvas.style.width = `${size}px`;
+  canvas.style.height = `${size}px`;
+  canvas.className = 'summary-donut-canvas';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(deviceRatio, deviceRatio);
+
+  const center = size / 2;
+  const outerRadius = (size / 2) - 12;
+  const innerRadius = outerRadius * 0.55;
+  let startAngle = -Math.PI / 2;
+
+  items.forEach((item, index) => {
+    const value = item.total || 0;
+    if (!value) {
+      return;
+    }
+    const segmentAngle = (value / total) * (Math.PI * 2);
+    const endAngle = startAngle + segmentAngle;
+
+    ctx.beginPath();
+    ctx.arc(center, center, outerRadius, startAngle, endAngle);
+    ctx.arc(center, center, innerRadius, endAngle, startAngle, true);
+    ctx.closePath();
+    ctx.fillStyle = palette[index % palette.length];
+    ctx.fill();
+
+    startAngle = endAngle;
+  });
+
+  ctx.fillStyle = '#212529';
+  ctx.font = '600 18px "Inter", "Segoe UI", system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(total.toString(), center, center);
+
+  const legend = document.createElement('div');
+  legend.className = 'summary-donut-legend';
+
+  items.forEach((item, index) => {
+    const legendItem = document.createElement('div');
+    legendItem.className = 'summary-donut-legend-item';
+
+    const swatch = document.createElement('span');
+    swatch.className = 'summary-donut-swatch';
+    swatch.style.backgroundColor = palette[index % palette.length];
+
+    const label = document.createElement('span');
+    label.className = 'summary-donut-legend-label';
+    label.textContent = item.name;
+
+    const value = document.createElement('span');
+    value.className = 'summary-donut-legend-value';
+    const percentage = Math.round((item.total / total) * 1000) / 10;
+    value.textContent = `${item.total} (${percentage.toFixed(1)}%)`;
+
+    legendItem.appendChild(swatch);
+    legendItem.appendChild(label);
+    legendItem.appendChild(value);
+    legend.appendChild(legendItem);
+  });
+
+  chartWrapper.appendChild(canvas);
+  content.appendChild(chartWrapper);
+  content.appendChild(legend);
+  container.appendChild(content);
+}
+
+function renderTemporalHeatmap(data, targetId) {
+  const container = document.getElementById(targetId);
+  if (!container || !data || !Array.isArray(data.bins) || !data.bins.length) {
+    return;
+  }
+  container.innerHTML = '';
+
+  const maxCount = data.max_count || 0;
+  const density = document.createElement('div');
+  density.className = 'temporal-density';
+
+  const meta = document.createElement('div');
+  meta.className = 'temporal-density-meta';
+  meta.innerHTML = `
+    <span><strong>Earliest</strong>: ${formatCommonEraYear(data.earliest_year)}</span>
+    <span><strong>Latest</strong>: ${formatCommonEraYear(data.latest_year)}</span>
+    <span><strong>Bin size</strong>: ${data.bin_size}-year spans</span>
+  `;
+  density.appendChild(meta);
+
+  const segments = [];
+  for (let idx = 0; idx < data.bins.length; ) {
+    const bin = data.bins[idx];
+    if (bin.count === 0) {
+      let start = idx;
+      while (idx < data.bins.length && data.bins[idx].count === 0) {
+        idx += 1;
+      }
+      const length = idx - start;
+      if (length > 1) {
+        segments.push({ type: 'gap', bins: data.bins.slice(start, idx) });
+        continue;
+      } else {
+        segments.push({ type: 'bin', bin });
+        continue;
+      }
+    }
+    segments.push({ type: 'bin', bin });
+    idx += 1;
+  }
+
+  segments.forEach(segment => {
+    if (segment.type === 'gap') {
+      const gapBins = segment.bins;
+      const gapDetails = document.createElement('details');
+      gapDetails.className = 'temporal-density-gap';
+
+      const summary = document.createElement('summary');
+      summary.className = 'temporal-density-gap-summary';
+
+      const startLabel = gapBins[0].label;
+      const endLabel = gapBins[gapBins.length - 1].label;
+      const labelText = startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
+
+      summary.innerHTML = `
+        <span class="temporal-density-gap-title">No references</span>
+        <span class="temporal-density-gap-range">${labelText}</span>
+        <span class="temporal-density-gap-count">${gapBins.length} empty span${gapBins.length > 1 ? 's' : ''}</span>
+      `;
+
+      const body = document.createElement('div');
+      body.className = 'temporal-density-gap-body';
+      const list = document.createElement('ul');
+      list.className = 'temporal-density-gap-list';
+      gapBins.forEach(bin => {
+        const item = document.createElement('li');
+        item.textContent = bin.label;
+        list.appendChild(item);
+      });
+      body.appendChild(list);
+
+      gapDetails.appendChild(summary);
+      gapDetails.appendChild(body);
+      density.appendChild(gapDetails);
+      return;
+    }
+
+    const bin = segment.bin;
+    const item = document.createElement('div');
+    item.className = 'temporal-density-item';
+
+    const label = document.createElement('div');
+    label.className = 'temporal-density-label';
+    label.textContent = bin.label;
+
+    const barTrack = document.createElement('div');
+    barTrack.className = 'temporal-density-bar';
+
+    const intensity = maxCount ? (bin.count / maxCount) : 0;
+    const widthPercent = maxCount ? (bin.count / maxCount) * 100 : 0;
+    const barFill = document.createElement('div');
+    barFill.className = 'temporal-density-bar-fill';
+    barFill.style.width = bin.count ? `${Math.max(widthPercent, 8)}%` : '0%';
+    barFill.style.background = heatmapColorForLevel(intensity);
+
+    barTrack.appendChild(barFill);
+
+    const count = document.createElement('div');
+    count.className = 'temporal-density-count';
+    count.textContent = bin.count;
+
+    const tooltipLines = (bin.people || []).slice(0, 10).map(person => {
+      return person.type ? `${person.name} (${person.type})` : person.name;
+    });
+    if (bin.people && bin.people.length > 10) {
+      tooltipLines.push(`+${bin.people.length - 10} more`);
+    }
+    item.title = tooltipLines.length ? tooltipLines.join('\n') : 'No referenced lifespans in this span.';
+
+    item.appendChild(label);
+    item.appendChild(barTrack);
+    item.appendChild(count);
+    density.appendChild(item);
+  });
+
+  container.appendChild(density);
+
+  if (maxCount > 0) {
+    const legend = document.createElement('div');
+    legend.className = 'temporal-heatmap-legend';
+    legend.innerHTML = `
+      <span class="temporal-heatmap-legend-label">Fewer</span>
+      <span class="temporal-heatmap-legend-gradient"></span>
+      <span class="temporal-heatmap-legend-label">More</span>
+    `;
+    container.appendChild(legend);
+  }
+}
+
+function heatmapColorForLevel(level) {
+  const clamped = Math.max(0, Math.min(1, level));
+  const start = [241, 243, 245];
+  const end = [13, 110, 253];
+  const channels = start.map((value, index) => {
+    const endValue = end[index];
+    return Math.round(value + (endValue - value) * clamped);
+  });
+  return `rgb(${channels[0]}, ${channels[1]}, ${channels[2]})`;
+}
+
+function formatCommonEraYear(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return '—';
+  }
+  if (value <= 0) {
+    return `${Math.abs(value) + 1} BC`;
+  }
+  return `${value}`;
+}
+
+function setupCollapsibleCards() {
+  const toggles = document.querySelectorAll('.summary-toggle');
+  toggles.forEach(toggleBtn => {
+    const targetSelector = toggleBtn.getAttribute('data-bs-target');
+    if (!targetSelector) {
+      return;
+    }
+
+    const collapseEl = document.querySelector(targetSelector);
+    if (!collapseEl) {
+      return;
+    }
+
+    const icon = toggleBtn.querySelector('.summary-toggle-icon');
+    if (!icon) {
+      return;
+    }
+
+    const updateIcon = () => {
+      if (collapseEl.classList.contains('show')) {
+        icon.classList.remove('bi-chevron-right');
+        icon.classList.add('bi-chevron-down');
+      } else {
+        icon.classList.remove('bi-chevron-down');
+        icon.classList.add('bi-chevron-right');
+      }
+    };
+
+    collapseEl.addEventListener('shown.bs.collapse', updateIcon);
+    collapseEl.addEventListener('hidden.bs.collapse', updateIcon);
+    updateIcon();
+  });
+}
+</script>
 {% endblock %}

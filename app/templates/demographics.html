@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Demographics Overview</h2>
+<p class="text-muted">A quick look at how referents are distributed across people types and nationalities.</p>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h5 class="card-title">People Types</h5>
+        <canvas id="people-type-chart" height="280" role="img" aria-label="Donut chart of referents by people type" class="{% if not type_distribution %}d-none{% endif %}"></canvas>
+        <p id="people-type-empty" class="text-muted mb-0 {% if type_distribution %}d-none{% endif %}">No people types have been recorded yet.</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h5 class="card-title">Nationalities</h5>
+        <canvas id="nationality-chart" height="280" role="img" aria-label="Donut chart of referents by nationality" class="{% if not nationality_distribution %}d-none{% endif %}"></canvas>
+        <p id="nationality-empty" class="text-muted mb-0 {% if nationality_distribution %}d-none{% endif %}">No nationalities have been recorded yet.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    if (typeof Chart === "undefined") {
+      console.warn("Chart.js failed to load.");
+      return;
+    }
+
+    const typeData = {{ type_distribution|tojson }};
+    const nationalityData = {{ nationality_distribution|tojson }};
+
+    const colorPalette = [
+      "#4c6ef5", "#fd7e14", "#20c997", "#845ef7", "#ff922b",
+      "#51cf66", "#5c7cfa", "#63e6be", "#9775fa", "#ffa94d"
+    ];
+
+    function buildDataset(items) {
+      const labels = [];
+      const data = [];
+      const colors = [];
+      items.forEach((item, idx) => {
+        labels.push(item.name || "Unknown");
+        data.push(item.total || 0);
+        colors.push(colorPalette[idx % colorPalette.length]);
+      });
+      return { labels, data, colors };
+    }
+
+    function renderDonut(canvasId, dataset, emptyTextId) {
+      const canvas = document.getElementById(canvasId);
+      const infoText = emptyTextId ? document.getElementById(emptyTextId) : null;
+
+      if (!canvas || !dataset.data.length || dataset.data.every(value => value === 0)) {
+        if (infoText) {
+          infoText.classList.remove("d-none");
+        }
+        if (canvas) {
+          canvas.classList.add("d-none");
+        }
+        return;
+      }
+
+      const context = canvas.getContext("2d");
+      new Chart(context, {
+        type: "doughnut",
+        data: {
+          labels: dataset.labels,
+          datasets: [{
+            data: dataset.data,
+            backgroundColor: dataset.colors,
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: "bottom"
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const label = context.label || "Unknown";
+                  const value = context.raw ?? 0;
+                  return `${label}: ${value}`;
+                }
+              }
+            }
+          },
+          cutout: "60%"
+        }
+      });
+    }
+
+    renderDonut("people-type-chart", buildDataset(typeData), "people-type-empty");
+    renderDonut("nationality-chart", buildDataset(nationalityData), "nationality-empty");
+  });
+</script>
+{% endblock %}

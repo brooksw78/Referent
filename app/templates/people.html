@@ -3,15 +3,43 @@
 {% block content %}
 <h2>People</h2>
 
-<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
-  <form method="GET" class="d-flex gap-2 flex-grow-1" role="search">
-    <input type="text" class="form-control" name="q" placeholder="Search people..." value="{{ search_query or '' }}">
-    <button type="submit" class="btn btn-outline-primary">Search</button>
-    {% if search_query %}
-    <a href="{{ url_for('main.people') }}" class="btn btn-outline-secondary">Clear</a>
-    {% endif %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3 mb-3">
+  <form method="GET" class="w-100" role="search">
+    <div class="row g-2">
+      <div class="col-md-4">
+        <input type="text" class="form-control" name="q" placeholder="Search people..." value="{{ search_query or '' }}">
+      </div>
+      <div class="col-md-3">
+        <select class="form-select" name="type_id" aria-label="Filter by person type">
+          <option value="">All types</option>
+          {% for entry in person_types %}
+          <option value="{{ entry.id }}" {% if selected_type_id == entry.id %}selected{% endif %}>
+            {{ entry.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select class="form-select" name="nationality_id" aria-label="Filter by nationality">
+          <option value="">All nationalities</option>
+          {% for entry in nationalities %}
+          <option value="{{ entry.id }}" {% if selected_nationality_id == entry.id %}selected{% endif %}>
+            {{ entry.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-outline-primary flex-grow-1">Apply</button>
+        {% if filters_active %}
+        <a href="{{ url_for('main.people') }}" class="btn btn-outline-secondary">Clear</a>
+        {% endif %}
+      </div>
+    </div>
   </form>
-  <a href="{{ url_for('main.add_person') }}" class="btn btn-success">Add Person</a>
+  <div class="flex-shrink-0">
+    <a href="{{ url_for('main.add_person') }}" class="btn btn-success w-100">Add Person</a>
+  </div>
 </div>
 
 <table class="table table-striped">
@@ -31,51 +59,56 @@
     <tr>
      <td>
         <div class="mt-1">
-            <strong><a href="{{ url_for('main.view_person', person_id=person[0]) }}">{{ person[1] }}</a></strong>
-            {% if person[10] %}
-            <div class="text-muted small">{{ person[10] }}</div>
+            <strong><a href="{{ url_for('main.view_person', person_id=person.id) }}">{{ person.name }}</a></strong>
+            {% if person.nationality_name %}
+            <div class="text-muted small">{{ person.nationality_name }}</div>
+            {% endif %}
+            {% if person.sex_label %}
+            <div class="text-muted small">Sex: {{ person.sex_label }}</div>
             {% endif %}
         </div>
       </td>
-      <td>{{ person[2] or '—' }}</td>
+      <td>{{ person.type_name or '—' }}</td>
       <td class="text-center">
-        {% if person[5] %}
-          <a href="{{ url_for('main.view_person', person_id=person[0]) }}" class="text-decoration-none">
-            <span class="badge bg-info rounded-pill">{{ person[5] }}</span>
+        {% if person.epigraph_count %}
+          <a href="{{ url_for('main.view_person', person_id=person.id) }}" class="text-decoration-none">
+            <span class="badge bg-info rounded-pill">{{ person.epigraph_count }}</span>
           </a>
         {% else %}
           <span class="text-muted">—</span>
         {% endif %}
       </td>
       <td align="center">
-        {% if person[4] %}
-          <a href="{{ url_for('main.view_person', person_id=person[0]) }}" class="text-decoration-none">
-            <span class="badge bg-primary rounded-pill"><strong>{{ person[4] }}</strong></span>
+        {% if person.citation_count %}
+          <a href="{{ url_for('main.view_person', person_id=person.id) }}" class="text-decoration-none">
+            <span class="badge bg-primary rounded-pill"><strong>{{ person.citation_count }}</strong></span>
           </a>
         {% else %}
           <span class="text-muted">—</span>
         {% endif %}
       </td>
       <td>
-        {% if person[6] %}
-          {{ person[6] }}{% if person[8] == 'BC' %} BC{% endif %}
+        {% if person.birth_year %}
+          {{ person.birth_year }}{% if person.birth_year_era == 'BC' %} BC{% endif %}
         {% else %}
           —
         {% endif %}
       </td>
       <td>
-        {% if person[7] %}
-          {{ person[7] }}{% if person[9] == 'BC' %} BC{% endif %}
+        {% if person.death_year %}
+          {{ person.death_year }}{% if person.death_year_era == 'BC' %} BC{% endif %}
         {% else %}
           —
         {% endif %}
       </td>
       <td align="right">
         <div class="mt-1">
-            <a href="{{ url_for('main.view_person', person_id=person[0]) }}" class="btn btn-sm btn-outline-primary">View</a>
-            <a href="{{ url_for('main.edit_person', person_id=person[0]) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+            <a href="{{ url_for('main.view_person', person_id=person.id) }}" class="btn btn-sm btn-outline-primary">View</a>
             &nbsp;
-            <form action="{{ url_for('main.delete_person', person_id=person[0]) }}" method="POST" style="display:inline;">
+            <a href="{{ url_for('main.edit_person', person_id=person.id) }}" class="btn btn-sm btn-outline-warning">Edit</a>
+            &nbsp;
+            <form action="{{ url_for('main.delete_person', person_id=person.id) }}" method="POST" style="display:inline;">
+            {{ csrf_input }}
             <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this person?')">Delete</button>
             </form>
         </div>

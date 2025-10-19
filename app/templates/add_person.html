@@ -5,6 +5,7 @@
 {% block content %}
 <h2>Add a Person</h2>
 <form method="POST" action="{{ url_for('main.add_person') }}">
+    {{ csrf_input }}
     <div class="mb-3 w-50">
         <label for="name" class="form-label">Name</label>
         <input type="text" class="form-control" name="name" value="{{ name or '' }}" required>
@@ -15,7 +16,17 @@
         <select class="form-select" name="type_id">
             <option value="">— Select type —</option>
             {% for type in person_types %}
-            <option value="{{ type[0] }}">{{ type[1] }}</option>
+            <option value="{{ type.id }}">{{ type.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="mb-3 w-25">
+        <label for="sex" class="form-label">Sex</label>
+        <select class="form-select" name="sex" id="sex">
+            <option value="">— Not specified —</option>
+            {% for value, label in sex_choices %}
+            <option value="{{ value }}">{{ label }}</option>
             {% endfor %}
         </select>
     </div>
@@ -25,7 +36,7 @@
         <select class="form-select" name="nationality_id" id="nationality_id">
             <option value="">— Select nationality —</option>
             {% for nationality in nationalities %}
-            <option value="{{ nationality[0] }}">{{ nationality[1] }}</option>
+            <option value="{{ nationality.id }}">{{ nationality.name }}</option>
             {% endfor %}
             <option value="_new">+ Add new nationality...</option>
         </select>

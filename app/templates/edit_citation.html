@@ -6,12 +6,13 @@
 <h2>Edit Citation</h2>
 
 <form method="POST">
+  {{ csrf_input }}
   <div class="mb-3">
     <label for="person_id" class="form-label">Person</label>
     <select class="form-select" name="person_id" required>
       {% for person in people %}
-      <option value="{{ person[0] }}" {% if person[0] == citation[1] %}selected{% endif %}>
-        {{ person[1] }}
+      <option value="{{ person.id }}" {% if person.id == citation.person_id %}selected{% endif %}>
+        {{ person.name }}
       </option>
       {% endfor %}
     </select>
@@ -21,8 +22,8 @@
     <label for="book_id" class="form-label">Book</label>
     <select class="form-select" name="book_id" required>
       {% for book in books %}
-      <option value="{{ book[0] }}" {% if book[0] == citation[2] %}selected{% endif %}>
-        {{ book[1] }}{% if book[10] %} (Complete){% endif %}
+      <option value="{{ book.id }}" {% if book.id == citation.book_id %}selected{% endif %}>
+        {{ book.title }}{% if book.is_complete %} (Complete){% endif %}
       </option>
       {% endfor %}
     </select>
@@ -30,11 +31,11 @@
 
   <div class="mb-3">
     <label for="page_number" class="form-label">Page Number</label>
-    <input type="text" class="form-control" name="page_number" value="{{ citation[3] }}" required>
+    <input type="text" class="form-control" name="page_number" value="{{ citation.page_number }}" required>
   </div>
 
     <div class="form-check mb-3">
-      <input class="form-check-input" type="checkbox" id="indirect_citation" name="indirect_citation">
+      <input class="form-check-input" type="checkbox" id="indirect_citation" name="indirect_citation" {% if citation.indirect_citation %}checked{% endif %}>
       <label class="form-check-label" for="indirect_citation">
         Indirect citation
       </label>
@@ -42,7 +43,7 @@
 
     <div class="mb-3">
         <label for="notes" class="form-label">Notes</label>
-        <textarea name="notes" class="form-control" rows="2">{{ (citation[4] or '').strip() }}</textarea>
+        <textarea name="notes" class="form-control" rows="2">{{ (citation.notes or '').strip() }}</textarea>
     </div>
 
   <button type="submit" class="btn btn-primary">Update Citation</button>

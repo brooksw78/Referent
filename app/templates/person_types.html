@@ -4,15 +4,36 @@
 <h2>Person Types</h2>
 
 <form method="POST" class="mb-4">
+  {{ csrf_input }}
+  <input type="hidden" name="action" value="add">
   <div class="input-group">
     <input type="text" name="name" class="form-control" placeholder="New type name" required>
     <button class="btn btn-primary" type="submit">Add Type</button>
   </div>
 </form>
 
-<ul class="list-group">
-  {% for type in types %}
-  <li class="list-group-item">{{ type[1] }}</li>
-  {% endfor %}
-</ul>
+{% if types %}
+  <div class="list-group">
+    {% for type in types %}
+    <form method="POST" class="list-group-item list-group-item-action d-flex flex-column flex-md-row gap-2 align-items-md-center">
+      {{ csrf_input }}
+      <input type="hidden" name="type_id" value="{{ type.id }}">
+      <div class="flex-grow-1">
+        <input type="text" name="name" class="form-control" value="{{ type.name }}">
+        <div class="form-text">Usage: {{ type.usage_count }}</div>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="submit" name="action" value="update" class="btn btn-sm btn-outline-primary">Save</button>
+        {% if type.usage_count %}
+          <button type="submit" class="btn btn-sm btn-outline-danger" disabled title="Cannot delete while in use">Delete</button>
+        {% else %}
+          <button type="submit" name="action" value="delete" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this person type?');">Delete</button>
+        {% endif %}
+      </div>
+    </form>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="text-muted">No person types recorded yet.</p>
+{% endif %}
 {% endblock %}

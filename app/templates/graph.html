@@ -1,0 +1,588 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Relationship Graph</h2>
+<p class="text-muted">Explore how books, people, citations, and epigraphs connect. Drag nodes to rearrange and click to open details.</p>
+
+<form id="graph-controls" class="graph-controls" onsubmit="return false;">
+  <div class="graph-control-group">
+    <label for="graph-focus-select" class="form-label mb-1">Focus on</label>
+    <select id="graph-focus-select" class="form-select form-select-sm">
+      <option value="">Show all nodes</option>
+    </select>
+  </div>
+  <div class="graph-control-group">
+    <label for="graph-min-threshold" class="form-label mb-1">Minimum connections</label>
+    <input type="number" min="1" value="1" id="graph-min-threshold" class="form-control form-control-sm">
+  </div>
+  <div class="graph-control-actions">
+    <button type="button" id="graph-focus-apply" class="btn btn-primary btn-sm">Apply</button>
+    <button type="button" id="graph-focus-clear" class="btn btn-outline-secondary btn-sm">Reset</button>
+  </div>
+</form>
+
+<ul class="graph-legend">
+  <li><span class="graph-legend-swatch book"></span> Book</li>
+  <li><span class="graph-legend-swatch person"></span> Person</li>
+  <li><span class="graph-legend-line citation"></span> Citation</li>
+  <li><span class="graph-legend-line epigraph"></span> Epigraph</li>
+</ul>
+
+<div id="graph-canvas" class="graph-container"></div>
+
+<script>
+(function () {
+  const container = document.getElementById('graph-canvas');
+  const focusSelect = document.getElementById('graph-focus-select');
+  const focusApply = document.getElementById('graph-focus-apply');
+  const focusClear = document.getElementById('graph-focus-clear');
+  const minThresholdInput = document.getElementById('graph-min-threshold');
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const MIN_WIDTH = 640;
+  const MIN_HEIGHT = 520;
+  const TYPE_LABELS = { book: 'Books', person: 'People' };
+
+  let cachedData = null;
+  let resizeTimer;
+  let graphAPI = null;
+  let panOffset = { x: 0, y: 0 };
+  let currentRootGroup = null;
+
+  focusApply.addEventListener('click', applyFilters);
+
+  focusClear.addEventListener('click', () => {
+    focusSelect.value = '';
+    minThresholdInput.value = 1;
+    applyFilters();
+  });
+
+  focusSelect.addEventListener('change', applyFilters);
+  minThresholdInput.addEventListener('change', applyFilters);
+
+  function populateNodeOptions(nodes) {
+    const previousValue = focusSelect.value;
+    focusSelect.innerHTML = '';
+
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Show all nodes';
+    focusSelect.appendChild(defaultOption);
+
+    const grouped = new Map();
+    nodes.forEach(node => {
+      if (!grouped.has(node.type)) {
+        grouped.set(node.type, []);
+      }
+      grouped.get(node.type).push(node);
+    });
+
+    Array.from(grouped.entries())
+      .sort((a, b) => (TYPE_LABELS[a[0]] || a[0]).localeCompare(TYPE_LABELS[b[0]] || b[0]))
+      .forEach(([type, list]) => {
+        list.sort((a, b) => a.label.localeCompare(b.label));
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = TYPE_LABELS[type] || type;
+        list.forEach(node => {
+          const option = document.createElement('option');
+          option.value = node.id;
+          option.textContent = `${node.label} (${TYPE_LABELS[type] || node.type})`;
+          optgroup.appendChild(option);
+        });
+        focusSelect.appendChild(optgroup);
+      });
+
+    const hasOptions = nodes.length > 0;
+    focusSelect.disabled = !hasOptions;
+    focusApply.disabled = !hasOptions;
+    focusClear.disabled = !hasOptions;
+
+    if (hasOptions && previousValue && focusSelect.querySelector(`option[value="${previousValue}"]`)) {
+      focusSelect.value = previousValue;
+    } else {
+      focusSelect.value = '';
+    }
+  }
+
+  function renderGraph(data) {
+    cachedData = data;
+
+    const bounds = container.getBoundingClientRect();
+    const width = Math.max(Math.floor(bounds.width) || MIN_WIDTH, MIN_WIDTH);
+    const height = Math.max(Math.floor(bounds.height) || MIN_HEIGHT, MIN_HEIGHT);
+
+    container.innerHTML = '';
+
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('class', 'graph-svg');
+    container.appendChild(svg);
+
+    const panSurface = document.createElementNS(svgNS, 'rect');
+    panSurface.setAttribute('class', 'graph-pan-surface');
+    panSurface.setAttribute('width', width);
+    panSurface.setAttribute('height', height);
+    panSurface.setAttribute('x', 0);
+    panSurface.setAttribute('y', 0);
+    svg.appendChild(panSurface);
+
+    const rootGroup = document.createElementNS(svgNS, 'g');
+    rootGroup.setAttribute('class', 'graph-root');
+    svg.appendChild(rootGroup);
+    currentRootGroup = rootGroup;
+
+    updatePanTransform();
+    registerPanHandlers(panSurface, svg);
+
+    const linkLayer = document.createElementNS(svgNS, 'g');
+    linkLayer.setAttribute('class', 'graph-links');
+    rootGroup.appendChild(linkLayer);
+
+    const nodeLayer = document.createElementNS(svgNS, 'g');
+    nodeLayer.setAttribute('class', 'graph-nodes');
+    rootGroup.appendChild(nodeLayer);
+
+    const minDegree = Math.max(1, parseInt(minThresholdInput.value, 10) || 1);
+
+    const degree = new Map();
+    data.edges.forEach(edge => {
+      degree.set(edge.source, (degree.get(edge.source) || 0) + 1);
+      degree.set(edge.target, (degree.get(edge.target) || 0) + 1);
+    });
+
+    const nodes = data.nodes
+      .filter(node => (degree.get(node.id) || 0) >= minDegree)
+      .map(node => ({ ...node, x: width / 2, y: height / 2 }));
+
+    const allowed = new Set(nodes.map(node => node.id));
+    const edges = data.edges
+      .filter(edge => allowed.has(edge.source) && allowed.has(edge.target))
+      .map(edge => ({ ...edge }));
+
+    populateNodeOptions(nodes);
+
+    const nodesById = new Map();
+    const edgesByNode = new Map();
+    let currentFocus = null;
+
+    edges.forEach(edge => {
+      const line = document.createElementNS(svgNS, 'line');
+      line.setAttribute('class', `graph-link graph-link-${edge.kind}`);
+      linkLayer.appendChild(line);
+      edge.element = line;
+      addEdgeReference(edge.source, edge);
+      addEdgeReference(edge.target, edge);
+    });
+
+    const bookNodes = nodes.filter(n => n.type === 'book');
+    const personNodes = nodes.filter(n => n.type === 'person');
+
+    positionRadially(bookNodes, width, height, Math.min(width, height) * 0.28);
+    positionRadially(personNodes, width, height, Math.min(width, height) * 0.45, bookNodes.length ? (Math.PI / bookNodes.length) : 0);
+
+    bookNodes.concat(personNodes).forEach(node => {
+      const group = document.createElementNS(svgNS, 'g');
+      group.setAttribute('class', 'graph-node');
+      group.dataset.nodeId = node.id;
+
+      const circle = document.createElementNS(svgNS, 'circle');
+      circle.setAttribute('r', node.type === 'book' ? 18 : 14);
+      circle.setAttribute('class', `graph-node-circle graph-node-${node.type}`);
+      group.appendChild(circle);
+
+      const text = document.createElementNS(svgNS, 'text');
+      text.setAttribute('class', 'graph-node-label');
+      text.setAttribute('y', 4);
+      group.appendChild(text);
+      wrapText(text, node.label, 200, node.type === 'book' ? 24 : 22);
+
+      const title = document.createElementNS(svgNS, 'title');
+      title.textContent = node.label;
+      group.appendChild(title);
+
+      nodeLayer.appendChild(group);
+
+      const nodeEntry = { ...node, group };
+      nodesById.set(node.id, nodeEntry);
+
+      attachDrag(svg, nodeEntry, edgesByNode, nodesById, width, height, node.url);
+    });
+
+    nodesById.forEach(updateNodePosition);
+    updateAllEdges();
+
+    updatePanTransform();
+
+    graphAPI = {
+      applyFocus,
+      clearFocus,
+      hasNode: id => nodesById.has(id),
+    };
+
+    const selectedNodeId = focusSelect.value;
+    if (selectedNodeId && nodesById.has(selectedNodeId)) {
+      applyFocus(selectedNodeId);
+    } else {
+      clearFocus();
+    }
+
+    function addEdgeReference(id, edge) {
+      if (!edgesByNode.has(id)) {
+        edgesByNode.set(id, []);
+      }
+      edgesByNode.get(id).push(edge);
+    }
+
+    function applyFocus(nodeId) {
+      if (!nodesById.has(nodeId)) {
+        clearFocus();
+        return;
+      }
+      currentFocus = nodeId;
+      const activeNodes = new Set([nodeId]);
+      (edgesByNode.get(nodeId) || []).forEach(edge => {
+        activeNodes.add(edge.source);
+        activeNodes.add(edge.target);
+      });
+
+      nodesById.forEach((node, id) => {
+        const isActive = activeNodes.has(id);
+        node.group.classList.toggle('graph-node-dim', !isActive);
+        node.group.classList.toggle('graph-node-focus', id === nodeId);
+      });
+
+      edges.forEach(edge => {
+        const shouldShow = activeNodes.has(edge.source) && activeNodes.has(edge.target);
+        edge.element.classList.toggle('graph-link-dim', !shouldShow);
+      });
+    }
+
+    function clearFocus() {
+      currentFocus = null;
+      nodesById.forEach(node => {
+        node.group.classList.remove('graph-node-dim', 'graph-node-focus');
+      });
+      edges.forEach(edge => {
+        edge.element.classList.remove('graph-link-dim');
+      });
+    }
+
+    function updateAllEdges() {
+      edges.forEach(edge => {
+        const source = nodesById.get(edge.source);
+        const target = nodesById.get(edge.target);
+        if (!source || !target) {
+          return;
+        }
+        edge.element.setAttribute('x1', source.x);
+        edge.element.setAttribute('y1', source.y);
+        edge.element.setAttribute('x2', target.x);
+        edge.element.setAttribute('y2', target.y);
+      });
+    }
+
+    function updateNodePosition(node) {
+      node.group.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+    }
+
+    function attachDrag(svgElement, node, edgeMap, nodeMap, width, height, url) {
+      let dragging = false;
+      let moved = false;
+      let pointerId = null;
+      let navigateTimeout = null;
+
+      const neighborIds = new Set();
+      (edgeMap.get(node.id) || []).forEach(edge => {
+        const otherId = edge.source === node.id ? edge.target : edge.source;
+        if (otherId && otherId !== node.id) {
+          neighborIds.add(otherId);
+        }
+      });
+
+      const onPointerDown = event => {
+        dragging = true;
+        moved = false;
+        pointerId = event.pointerId;
+        node.group.classList.add('dragging');
+        node.group.setPointerCapture(pointerId);
+        if (navigateTimeout) {
+          clearTimeout(navigateTimeout);
+          navigateTimeout = null;
+        }
+        event.preventDefault();
+      };
+
+      const onPointerMove = event => {
+        if (!dragging) {
+          return;
+        }
+        const position = getRelativePosition(svgElement, event, width, height);
+        const dx = position.x - node.x;
+        const dy = position.y - node.y;
+        if (!dx && !dy) {
+          return;
+        }
+        moved = true;
+        node.x = position.x;
+        node.y = position.y;
+        updateNodePosition(node);
+        updateEdgesForNode(node.id, edgeMap, nodeMap);
+
+        neighborIds.forEach(neighborId => {
+          const neighbor = nodeMap.get(neighborId);
+          if (!neighbor) {
+            return;
+          }
+          neighbor.x += dx;
+          neighbor.y += dy;
+          updateNodePosition(neighbor);
+          updateEdgesForNode(neighborId, edgeMap, nodeMap);
+        });
+      };
+
+      const onPointerUp = () => {
+        if (!dragging) {
+          return;
+        }
+        dragging = false;
+        node.group.classList.remove('dragging');
+        if (pointerId !== null && node.group.hasPointerCapture(pointerId)) {
+          node.group.releasePointerCapture(pointerId);
+        }
+        pointerId = null;
+        if (!moved && url) {
+          navigateTimeout = setTimeout(() => {
+            window.location.href = url;
+          }, 160);
+        }
+      };
+
+      node.group.addEventListener('pointerdown', onPointerDown);
+      node.group.addEventListener('pointermove', onPointerMove);
+      node.group.addEventListener('pointerup', onPointerUp);
+      node.group.addEventListener('pointercancel', onPointerUp);
+      node.group.addEventListener('pointerleave', event => {
+        if (dragging) {
+          onPointerUp(event);
+        }
+      });
+
+      node.group.addEventListener('dblclick', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (navigateTimeout) {
+          clearTimeout(navigateTimeout);
+          navigateTimeout = null;
+        }
+        focusSelect.value = node.id;
+        applyFocus(node.id);
+      });
+    }
+
+    function updateEdgesForNode(nodeId, edgeMap, nodeMap) {
+      const connected = edgeMap.get(nodeId) || [];
+      connected.forEach(edge => {
+        const source = nodeMap.get(edge.source);
+        const target = nodeMap.get(edge.target);
+        if (!source || !target) {
+          return;
+        }
+        edge.element.setAttribute('x1', source.x);
+        edge.element.setAttribute('y1', source.y);
+        edge.element.setAttribute('x2', target.x);
+        edge.element.setAttribute('y2', target.y);
+      });
+    }
+
+    function positionRadially(nodeList, width, height, radius, angleOffset = 0) {
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const count = nodeList.length;
+      if (!count) {
+        return;
+      }
+      if (count === 1) {
+        nodeList[0].x = centerX;
+        nodeList[0].y = centerY - radius;
+        return;
+      }
+      nodeList.forEach((node, index) => {
+        const angle = angleOffset + (index / count) * Math.PI * 2;
+        node.x = centerX + Math.cos(angle) * radius;
+        node.y = centerY + Math.sin(angle) * radius;
+      });
+    }
+
+    function getRelativePosition(svgElement, event, width, height) {
+      const rect = svgElement.getBoundingClientRect();
+      const scaleX = width / rect.width;
+      const scaleY = height / rect.height;
+      return {
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY,
+      };
+    }
+
+    function wrapText(textElement, text, maxWidth, xPosition) {
+      while (textElement.firstChild) {
+        textElement.removeChild(textElement.firstChild);
+      }
+      const words = (text || '').split(/\s+/).filter(Boolean);
+      const lineHeight = 14;
+      if (!words.length) {
+        const span = document.createElementNS(svgNS, 'tspan');
+        span.setAttribute('x', xPosition);
+        span.setAttribute('dy', '0');
+        textElement.appendChild(span);
+        return;
+      }
+
+      let line = '';
+      let lineNumber = 0;
+      let tspan = createTspan(lineNumber);
+
+      words.forEach(word => {
+        const testLine = line ? `${line} ${word}` : word;
+        tspan.textContent = testLine;
+        if (tspan.getComputedTextLength() > maxWidth && line) {
+          tspan.textContent = line;
+          lineNumber += 1;
+          tspan = createTspan(lineNumber);
+          tspan.textContent = word;
+          line = word;
+        } else {
+          line = testLine;
+        }
+      });
+
+      function createTspan(lineIndex) {
+        const span = document.createElementNS(svgNS, 'tspan');
+        span.setAttribute('x', xPosition);
+        span.setAttribute('dy', lineIndex === 0 ? '0' : String(lineHeight));
+        textElement.appendChild(span);
+        return span;
+      }
+    }
+  }
+
+  function applyFilters() {
+    if (!cachedData) {
+      return;
+    }
+    renderGraph(cachedData);
+    if (!graphAPI) {
+      return;
+    }
+    const nodeId = focusSelect.value;
+    if (nodeId && graphAPI.hasNode(nodeId)) {
+      graphAPI.applyFocus(nodeId);
+    } else {
+      if (!graphAPI.hasNode(nodeId)) {
+        focusSelect.value = '';
+      }
+      graphAPI.clearFocus();
+    }
+  }
+
+  function updatePanTransform() {
+    if (currentRootGroup) {
+      currentRootGroup.setAttribute('transform', `translate(${panOffset.x}, ${panOffset.y})`);
+    }
+  }
+
+  function registerPanHandlers(surface, svgElement) {
+    if (!surface) {
+      return;
+    }
+
+    let isPanning = false;
+    let pointerId = null;
+    let startX = 0;
+    let startY = 0;
+    let originX = 0;
+    let originY = 0;
+
+    surface.addEventListener('pointerdown', event => {
+      if (event.button !== 0) {
+        return;
+      }
+      isPanning = true;
+      pointerId = event.pointerId;
+      startX = event.clientX;
+      startY = event.clientY;
+      originX = panOffset.x;
+      originY = panOffset.y;
+      surface.setPointerCapture(pointerId);
+      svgElement.classList.add('graph-panning');
+      event.preventDefault();
+    });
+
+    surface.addEventListener('pointermove', event => {
+      if (!isPanning || event.pointerId !== pointerId) {
+        return;
+      }
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      panOffset = { x: originX + dx, y: originY + dy };
+      updatePanTransform();
+    });
+
+    function endPan(event) {
+      if (!isPanning || event.pointerId !== pointerId) {
+        return;
+      }
+      isPanning = false;
+      surface.releasePointerCapture(pointerId);
+      pointerId = null;
+      svgElement.classList.remove('graph-panning');
+    }
+
+    surface.addEventListener('pointerup', endPan);
+    surface.addEventListener('pointercancel', endPan);
+    surface.addEventListener('pointerleave', event => {
+      if (isPanning && event.pointerId === pointerId) {
+        endPan(event);
+      }
+    });
+  }
+
+  fetch('{{ url_for("main.graph_data") }}')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Server responded with status ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      renderGraph(data);
+    })
+    .catch(err => {
+      console.error('Failed to load graph data', err);
+      container.innerHTML = '<div class="alert alert-danger">Unable to load graph data at the moment.</div>';
+      focusSelect.disabled = true;
+      focusApply.disabled = true;
+      focusClear.disabled = true;
+    });
+
+  window.addEventListener('resize', () => {
+    if (!cachedData) {
+      return;
+    }
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      renderGraph(cachedData);
+      if (!graphAPI) {
+        return;
+      }
+      const nodeId = focusSelect.value;
+      if (nodeId && graphAPI.hasNode(nodeId)) {
+        graphAPI.applyFocus(nodeId);
+      } else {
+        graphAPI.clearFocus();
+      }
+    }, 200);
+  });
+})();
+</script>
+{% endblock %}

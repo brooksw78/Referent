@@ -12,35 +12,36 @@
     <div class="d-flex justify-content-between align-items-start">
       <div class="flex-grow-1 me-3">
         <div class="mb-2">
-          <strong><a href="{{ url_for('main.view_person', person_id=epigraph[3]) }}">{{ epigraph[4] }}</a></strong>
+          <strong><a href="{{ url_for('main.view_person', person_id=epigraph.author_id) }}">{{ epigraph.author_name }}</a></strong>
           <span class="text-muted">—</span>
-          <a href="{{ url_for('main.view_book', book_id=epigraph[1]) }}"><em>{{ epigraph[2] }}</em></a>
+          <a href="{{ url_for('main.view_book', book_id=epigraph.book_id) }}"><em>{{ epigraph.book_title }}</em></a>
         </div>
         <div class="p-3 bg-light border rounded" style="white-space: pre-wrap;">
-          {{- epigraph[5] -}}
+          {{- epigraph.quote -}}
         </div>
-        {% if epigraph[6] %}
+        {% if epigraph.notes %}
         <div class="mt-2">
-          <button class="btn btn-sm btn-link p-0" data-bs-toggle="collapse" data-bs-target="#epigraph-note-{{ epigraph[0] }}">
+          <button class="btn btn-sm btn-link p-0" data-bs-toggle="collapse" data-bs-target="#epigraph-note-{{ epigraph.id }}">
             <i class="bi bi-chat-left-text"></i> Notes
           </button>
-          <div class="collapse mt-2" id="epigraph-note-{{ epigraph[0] }}">
+          <div class="collapse mt-2" id="epigraph-note-{{ epigraph.id }}">
             <div class="card card-body bg-light" style="white-space: pre-wrap;">
-              {{- epigraph[6] -}}
+              {{- epigraph.notes -}}
             </div>
           </div>
         </div>
         {% endif %}
       </div>
       <div class="d-flex flex-column align-items-end gap-2">
-        <a href="{{ url_for('main.edit_epigraph', epigraph_id=epigraph[0]) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
-        <form method="POST" action="{{ url_for('main.delete_epigraph', epigraph_id=epigraph[0]) }}" onsubmit="return confirm('Delete this epigraph?');" class="d-inline">
+        <a href="{{ url_for('main.edit_epigraph', epigraph_id=epigraph.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+        <form method="POST" action="{{ url_for('main.delete_epigraph', epigraph_id=epigraph.id) }}" onsubmit="return confirm('Delete this epigraph?');" class="d-inline">
+          {{ csrf_input }}
           <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
         </form>
       </div>
     </div>
-    {% if epigraph[7] %}
-    <div class="small text-muted mt-2">Added {{ epigraph[7] }}</div>
+    {% if epigraph.created_at %}
+    <div class="small text-muted mt-2">Added {{ epigraph.created_at }}</div>
     {% endif %}
   </div>
   {% endfor %}

@@ -10,6 +10,7 @@
   <table class="table table-striped align-middle">
     <thead>
       <tr>
+        <th>Cover</th>
         <th>Title</th>
         <th>Author(s)</th>
         <th>Translator(s)</th>
@@ -22,17 +23,30 @@
     <tbody>
       {% for book in books %}
       <tr>
+        <td class="align-middle" style="width: 72px;">
+          {% set cover_src = None %}
+          {% if book.cover_image_path %}
+            {% set cover_src = url_for('static', filename=book.cover_image_path) %}
+          {% elif book.cover_url %}
+            {% set cover_src = book.cover_url %}
+          {% endif %}
+          {% if cover_src %}
+          <img src="{{ cover_src }}" alt="{{ book.title }} cover" class="img-thumbnail" style="max-height: 72px;">
+          {% else %}
+          —
+          {% endif %}
+        </td>
         <td class="align-middle">
           <div class="d-flex flex-column">
-            <a href="{{ url_for('main.view_book', book_id=book[0]) }}" class="fw-semibold text-decoration-none">{{ book[1] }}</a>
-            {% if book[10] %}
+            <a href="{{ url_for('main.view_book', book_id=book.id) }}" class="fw-semibold text-decoration-none">{{ book.title }}</a>
+            {% if book.is_complete %}
             <span class="badge bg-success mt-1 align-self-start">Complete</span>
             {% endif %}
           </div>
         </td>
         <td>
-          {% if book[5] %}
-            {% set author_pairs = book[5].split('|') %}
+          {% if book.author_ids %}
+            {% set author_pairs = book.author_ids.split('|') %}
             {% for pair in author_pairs %}
               {% set parts = pair.split('::') %}
               <a href="{{ url_for('main.view_person', person_id=parts[0]) }}">{{ parts[1] }}</a>{% if not loop.last %}, {% endif %}
@@ -42,8 +56,8 @@
           {% endif %}
         </td>
         <td>
-          {% if book[7] %}
-            {% set translator_pairs = book[7].split('|') %}
+          {% if book.translator_ids %}
+            {% set translator_pairs = book.translator_ids.split('|') %}
             {% for pair in translator_pairs %}
               {% set parts = pair.split('::') %}
               <a href="{{ url_for('main.view_person', person_id=parts[0]) }}">{{ parts[1] }}</a>{% if not loop.last %}, {% endif %}
@@ -52,11 +66,11 @@
             —
           {% endif %}
         </td>
-        <td>{{ book[2] or '—' }}</td>
-        <td class="text-center"><span class="badge bg-info rounded-pill">{{ book[9] if book[9] is not none else '-' }}</span></td>
-        <td class="text-center"><span class="badge bg-primary rounded-pill">{{ book[8] if book[8] is not none else '-' }}</span></td>
+        <td>{{ book.publication_year or '—' }}</td>
+        <td class="text-center"><span class="badge bg-info rounded-pill">{{ book.epigraph_count if book.epigraph_count is not none else '-' }}</span></td>
+        <td class="text-center"><span class="badge bg-primary rounded-pill">{{ book.citation_count if book.citation_count is not none else '-' }}</span></td>
         <td class="text-end">
-          <a href="{{ url_for('main.edit_book', book_id=book[0]) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+          <a href="{{ url_for('main.edit_book', book_id=book.id) }}" class="btn btn-sm btn-outline-primary">Edit</a>
         </td>
       </tr>
       {% endfor %}

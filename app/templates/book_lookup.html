@@ -4,6 +4,7 @@
 <h2>Lookup Book via Open Library</h2>
 
 <form method="POST" class="mb-4">
+  {{ csrf_input }}
   <div class="row g-3">
     <div class="col-md-4">
       <label for="title" class="form-label">Title</label>
@@ -31,19 +32,28 @@
 <div class="list-group">
   {% for book in results %}
   <div class="list-group-item">
-    <h5 class="mb-1">{{ book.title }}</h5>
-    <p class="mb-1">
-      <strong>Authors:</strong> {{ book.authors|join(', ') }}<br>
-      <strong>Publication Year:</strong> {{ book.publication_year or '—' }}<br>
-      <strong>ISBN:</strong> {{ book.isbn or '—' }}
-    </p>
-    <form action="{{ url_for('main.add_book') }}" method="POST" style="display:inline;">
-      <input type="hidden" name="title" value="{{ book.title }}">
-      <input type="hidden" name="authors" value="{{ book.authors|join(', ') }}">
-      <input type="hidden" name="publication_year" value="{{ book.publication_year }}">
-      <input type="hidden" name="isbn" value="{{ book.isbn or '' }}">
-      <button class="btn btn-sm btn-success">Import</button>
-    </form>
+    <div class="d-flex align-items-start gap-3">
+      {% if book.cover_url %}
+      <img src="{{ book.cover_url }}" alt="{{ book.title }} cover" class="rounded" style="width: 96px; height: auto;">
+      {% endif %}
+      <div class="flex-grow-1">
+        <h5 class="mb-1">{{ book.title }}</h5>
+        <p class="mb-1">
+          <strong>Authors:</strong> {{ book.authors|join(', ') }}<br>
+          <strong>Publication Year:</strong> {{ book.publication_year or '—' }}<br>
+          <strong>ISBN:</strong> {{ book.isbn or '—' }}
+        </p>
+        <form action="{{ url_for('main.add_book') }}" method="POST" class="d-inline">
+          {{ csrf_input }}
+          <input type="hidden" name="title" value="{{ book.title }}">
+          <input type="hidden" name="authors" value="{{ book.authors|join(', ') }}">
+          <input type="hidden" name="publication_year" value="{{ book.publication_year }}">
+          <input type="hidden" name="isbn" value="{{ book.isbn or '' }}">
+          <input type="hidden" name="cover_url" value="{{ book.cover_url or '' }}">
+          <button class="btn btn-sm btn-success">Import</button>
+        </form>
+      </div>
+    </div>
   </div>
   {% endfor %}
 </div>

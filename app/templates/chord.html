@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Books ↔ Person Types</h2>
+<p class="text-muted">Visualizes how books connect to person types via citations (solid) and epigraphs (dashed). Hover to highlight connections and click labels for details.</p>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Legend</h5>
+        <ul class="chord-legend">
+          <li><span class="chord-swatch chord-book"></span> Book</li>
+          <li><span class="chord-swatch chord-type"></span> Person Type</li>
+          <li><span class="chord-link chord-link-citation"></span> Citations</li>
+          <li><span class="chord-link chord-link-epigraph"></span> Epigraphs</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Filters</h5>
+        <div class="row gy-2 gx-2">
+          <div class="col-sm-6">
+            <label for="chord-metric" class="form-label">Arc weighting</label>
+            <select id="chord-metric" class="form-select form-select-sm">
+              <option value="total">Combined citations + epigraphs</option>
+              <option value="citations">Citations only</option>
+              <option value="epigraphs">Epigraphs only</option>
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label for="chord-min-threshold" class="form-label">Minimum connections</label>
+            <input type="number" min="1" value="1" id="chord-min-threshold" class="form-control form-control-sm">
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          <button type="button" id="chord-apply" class="btn btn-primary btn-sm">Apply</button>
+          <button type="button" id="chord-reset" class="btn btn-outline-secondary btn-sm">Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="chord-container" class="chord-container"></div>
+<div id="chord-tooltip" class="chord-tooltip" role="status" aria-live="polite"></div>
+
+<template id="chord-tooltip-template">
+  <strong>{{ book }}</strong>
+  <div>{{ person_type }}</div>
+  <div>Citations: {{ citations }}</div>
+  <div>Epigraphs: {{ epigraphs }}</div>
+</template>
+
+<script>
+(function () {
+  const container = document.getElementById('chord-container');
+  const tooltip = document.getElementById('chord-tooltip');
+  const metricSelect = document.getElementById('chord-metric');
+  const thresholdInput = document.getElementById('chord-min-threshold');
+  const applyBtn = document.getElementById('chord-apply');
+  const resetBtn = document.getElementById('chord-reset');
+  const templateString = document.getElementById('chord-tooltip-template').innerHTML;
+  const svgNS = 'http://www.w3.org/2000/svg';
+
+  let rawData = null;
+  let currentData = null;
+  let chartState = null;
+
+  applyBtn.addEventListener('click', render);
+  resetBtn.addEventListener('click', () => {
+    metricSelect.value = 'total';
+    thresholdInput.value = 1;
+    render();
+  });
+
+  window.addEventListener('resize', () => {
+    if (rawData) {
+      render();
+    }
+  });
+
+  fetch('{{ url_for("main.chord_data") }}')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Server responded with status ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      rawData = data;
+      render();
+    })
+    .catch(err => {
+      console.error('Failed to load chord data', err);
+      container.innerHTML = '<div class="alert alert-danger">Unable to load chord data. Please try again later.</div>';
+    });
+
+  function render() {
+    if (!rawData) {
+      return;
+    }
+
+    const metric = metricSelect.value || 'total';
+    const threshold = Math.max(1, parseInt(thresholdInput.value, 10) || 1);
+
+    currentData = transformData(rawData, metric, threshold);
+    drawChord(currentData);
+  }
+
+  function transformData(data, metric, threshold) {
+    const books = data.books.map((book, index) => ({ ...book, index }));
+    const types = data.person_types.map((type, index) => ({ ...type, index }));
+
+    const matrix = Array.from({ length: books.length }, () => Array(types.length).fill(0));
+    const connections = [];
+
+    data.connections.forEach(connection => {
+      const bookIndex = books.findIndex(book => book.id === connection.book.id);
+      const typeIndex = types.findIndex(type => type.id === connection.person_type.id);
+      if (bookIndex === -1 || typeIndex === -1) {
+        return;
+      }
+
+      const value = connection[metric] || 0;
+      if (value < threshold) {
+        return;
+      }
+
+      matrix[bookIndex][typeIndex] = value;
+      connections.push({
+        bookId: connection.book.id,
+        bookTitle: connection.book.title,
+        bookUrl: connection.book.url,
+        typeId: connection.person_type.id,
+        typeName: connection.person_type.name,
+        typeUrl: connection.person_type.url,
+        citations: connection.citations,
+        epigraphs: connection.epigraphs,
+        value,
+      });
+    });
+
+    const bookTotals = matrix.map(row => row.reduce((sum, val) => sum + val, 0));
+    const typeTotals = matrix[0] ? matrix[0].map((_, colIdx) => matrix.reduce((sum, row) => sum + row[colIdx], 0)) : [];
+
+    return {
+      books,
+      types,
+      matrix,
+      connections,
+      bookTotals,
+      typeTotals,
+      metric,
+    };
+  }
+
+  function drawChord(data) {
+    const width = Math.max(container.clientWidth, 720);
+    const height = width;
+    const radius = Math.min(width, height) / 2 - 60;
+
+    container.innerHTML = '';
+    tooltip.style.display = 'none';
+
+    if (!data.connections.length) {
+      container.innerHTML = '<div class="alert alert-warning">No connections meet the current criteria.</div>';
+      return;
+    }
+
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('class', 'chord-svg');
+    container.appendChild(svg);
+
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    const bookNodes = data.books.filter((_, index) => data.bookTotals[index] > 0);
+    const typeNodes = data.types.filter((_, index) => data.typeTotals[index] > 0);
+
+    const totalNodes = bookNodes.length + typeNodes.length;
+    const angleStep = (Math.PI * 2) / Math.max(totalNodes, 1);
+
+    const arcs = [];
+
+    bookNodes.forEach((book, i) => {
+      const angleStart = i * angleStep;
+      const angleEnd = angleStart + angleStep;
+      arcs.push({
+        id: `book-${book.id}`,
+        label: book.title,
+        url: book.url,
+        type: 'book',
+        value: data.bookTotals[book.index],
+        startAngle: angleStart,
+        endAngle: angleEnd,
+      });
+    });
+
+    typeNodes.forEach((type, i) => {
+      const angleStart = (bookNodes.length + i) * angleStep;
+      const angleEnd = angleStart + angleStep;
+      arcs.push({
+        id: `type-${type.id}`,
+        label: type.name,
+        url: type.url,
+        type: 'person_type',
+        value: data.typeTotals[type.index],
+        startAngle: angleStart,
+        endAngle: angleEnd,
+      });
+    });
+
+    const arcGroup = document.createElementNS(svgNS, 'g');
+    arcGroup.setAttribute('transform', `translate(${centerX}, ${centerY})`);
+    svg.appendChild(arcGroup);
+
+    const linksGroup = document.createElementNS(svgNS, 'g');
+    linksGroup.setAttribute('transform', `translate(${centerX}, ${centerY})`);
+    svg.appendChild(linksGroup);
+
+    arcs.forEach(arc => {
+      const path = document.createElementNS(svgNS, 'path');
+      path.setAttribute('d', describeArc(0, 0, radius, arc.startAngle, arc.endAngle));
+      path.setAttribute('class', `chord-arc chord-arc-${arc.type}`);
+      path.dataset.arcId = arc.id;
+      arcGroup.appendChild(path);
+
+      const handleArcClick = event => {
+        event.preventDefault();
+        const arcId = arc.id;
+        if (event.ctrlKey || event.metaKey) {
+          if (arc.url) {
+            window.open(arc.url, '_blank');
+          }
+          return;
+        }
+        if (chartState && chartState.activeArcId === arcId) {
+          chartState.clearHighlights();
+          chartState.activeArcId = null;
+        } else {
+          if (chartState) {
+            chartState.highlightArc(arcId);
+            chartState.activeArcId = arcId;
+          }
+        }
+      };
+
+      const handleArcNavigate = event => {
+        if (arc.url) {
+          event.preventDefault();
+          window.location.href = arc.url;
+        }
+      };
+
+      const angle = (arc.startAngle + arc.endAngle) / 2;
+      const labelRadius = radius + 20;
+      const label = document.createElementNS(svgNS, 'text');
+      label.setAttribute('class', 'chord-label');
+      const x = Math.cos(angle) * labelRadius;
+      const y = Math.sin(angle) * labelRadius;
+      label.setAttribute('x', x);
+      label.setAttribute('y', y);
+      label.textContent = arc.label;
+      label.dataset.arcId = arc.id;
+      if (x < 0) {
+        label.setAttribute('text-anchor', 'end');
+      } else {
+        label.setAttribute('text-anchor', 'start');
+      }
+      arcGroup.appendChild(label);
+
+      path.addEventListener('click', handleArcClick);
+      path.addEventListener('dblclick', handleArcNavigate);
+      label.addEventListener('click', handleArcClick);
+      label.addEventListener('dblclick', handleArcNavigate);
+    });
+
+    data.connections.forEach(connection => {
+      const bookArc = arcs.find(arc => arc.id === `book-${connection.bookId}`);
+      const typeArc = arcs.find(arc => arc.id === `type-${connection.typeId}`);
+      if (!bookArc || !typeArc) {
+        return;
+      }
+
+      const bookPos = pointOnCircle(radius - 10, (bookArc.startAngle + bookArc.endAngle) / 2);
+      const typePos = pointOnCircle(radius - 10, (typeArc.startAngle + typeArc.endAngle) / 2);
+
+      const path = document.createElementNS(svgNS, 'path');
+      path.setAttribute('d', describeLink(bookPos, typePos, radius));
+      const strokeWidth = Math.max(2, 2 + Math.log1p(connection.value));
+      path.setAttribute('class', `chord-connection ${connection.epigraphs ? 'chord-has-epigraphs' : ''}`);
+      path.setAttribute('stroke-width', strokeWidth);
+      path.dataset.bookId = connection.bookId;
+      path.dataset.typeId = connection.typeId;
+      path.dataset.citations = connection.citations;
+      path.dataset.epigraphs = connection.epigraphs;
+      path.dataset.bookTitle = connection.bookTitle;
+      path.dataset.typeName = connection.typeName;
+      linksGroup.appendChild(path);
+
+      path.addEventListener('mousemove', event => showTooltip(event, connection));
+      path.addEventListener('mouseleave', hideTooltip);
+      path.addEventListener('click', () => {
+        highlightConnection(connection.bookId, connection.typeId);
+      });
+    });
+
+    chartState = {
+      arcs,
+      svg,
+      highlightConnection,
+      highlightArc,
+      clearHighlights,
+      activeArcId: null,
+    };
+
+    svg.addEventListener('mouseleave', hideTooltip);
+  }
+
+  function highlightConnection(bookId, typeId) {
+    if (!chartState) {
+      return;
+    }
+    chartState.clearHighlights();
+
+    const arcsToHighlight = new Set([`book-${bookId}`, `type-${typeId}`]);
+
+    chartState.svg.querySelectorAll('.chord-connection').forEach(path => {
+      const match = path.dataset.bookId == bookId && path.dataset.typeId == typeId;
+      path.classList.toggle('chord-connection-active', match);
+      path.classList.toggle('chord-connection-dim', !match);
+    });
+
+    chartState.svg.querySelectorAll('.chord-arc').forEach(path => {
+      const active = arcsToHighlight.has(path.dataset.arcId);
+      path.classList.toggle('chord-arc-active', active);
+      path.classList.toggle('chord-arc-dim', !active);
+    });
+
+    chartState.svg.querySelectorAll('.chord-label').forEach(label => {
+      const active = arcsToHighlight.has(label.dataset.arcId);
+      label.classList.toggle('chord-label-active', active);
+      label.classList.toggle('chord-label-dim', !active);
+    });
+
+    if (chartState) {
+      chartState.activeArcId = null;
+    }
+  }
+
+  function highlightArc(arcId) {
+    if (!chartState) {
+      return;
+    }
+
+    const targetArc = chartState.arcs.find(arc => arc.id === arcId);
+    if (!targetArc) {
+      return;
+    }
+
+    chartState.activeArcId = arcId;
+
+    const relatedArcs = new Set([arcId]);
+    const idValue = arcId.split('-')[1];
+
+    chartState.svg.querySelectorAll('.chord-connection').forEach(path => {
+      const matches = targetArc.type === 'book'
+        ? path.dataset.bookId === idValue
+        : path.dataset.typeId === idValue;
+
+      path.classList.toggle('chord-connection-active', matches);
+      path.classList.toggle('chord-connection-dim', !matches);
+
+      if (matches) {
+        if (targetArc.type === 'book') {
+          relatedArcs.add(`type-${path.dataset.typeId}`);
+        } else {
+          relatedArcs.add(`book-${path.dataset.bookId}`);
+        }
+      }
+    });
+
+    chartState.svg.querySelectorAll('.chord-arc').forEach(path => {
+      const active = relatedArcs.has(path.dataset.arcId);
+      path.classList.toggle('chord-arc-active', active);
+      path.classList.toggle('chord-arc-dim', !active);
+    });
+
+    chartState.svg.querySelectorAll('.chord-label').forEach(label => {
+      const active = relatedArcs.has(label.dataset.arcId);
+      label.classList.toggle('chord-label-active', active);
+      label.classList.toggle('chord-label-dim', !active);
+    });
+  }
+
+  function clearHighlights() {
+    if (!chartState) {
+      return;
+    }
+    chartState.svg.querySelectorAll('.chord-connection').forEach(path => path.classList.remove('chord-connection-active', 'chord-connection-dim'));
+    chartState.svg.querySelectorAll('.chord-arc').forEach(path => path.classList.remove('chord-arc-active', 'chord-arc-dim'));
+    chartState.svg.querySelectorAll('.chord-label').forEach(label => label.classList.remove('chord-label-active', 'chord-label-dim'));
+    chartState.activeArcId = null;
+  }
+
+  function showTooltip(event, connection) {
+    const html = templateString
+      .replace('{{ book }}', connection.bookTitle)
+      .replace('{{ person_type }}', connection.typeName)
+      .replace('{{ citations }}', connection.citations)
+      .replace('{{ epigraphs }}', connection.epigraphs);
+
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    const { clientX, clientY } = event;
+    tooltip.style.left = `${clientX + 12}px`;
+    tooltip.style.top = `${clientY + 12}px`;
+  }
+
+  function hideTooltip() {
+    tooltip.style.display = 'none';
+  }
+
+  function pointOnCircle(radius, angle) {
+    return {
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius,
+    };
+  }
+
+  function describeArc(x, y, radius, startAngle, endAngle) {
+    const start = polarToCartesian(x, y, radius, endAngle);
+    const end = polarToCartesian(x, y, radius, startAngle);
+    const largeArcFlag = endAngle - startAngle <= Math.PI ? '0' : '1';
+
+    return [
+      'M', start.x, start.y,
+      'A', radius, radius, 0, largeArcFlag, 0, end.x, end.y,
+    ].join(' ');
+  }
+
+  function describeLink(start, end, radius) {
+    const midRadius = radius * 0.6;
+    const control1 = polarToCartesian(0, 0, midRadius, Math.atan2(start.y, start.x));
+    const control2 = polarToCartesian(0, 0, midRadius, Math.atan2(end.y, end.x));
+
+    return [
+      'M', start.x, start.y,
+      'C', control1.x, control1.y, control2.x, control2.y, end.x, end.y,
+    ].join(' ');
+  }
+
+  function polarToCartesian(centerX, centerY, radius, angle) {
+    return {
+      x: centerX + (radius * Math.cos(angle)),
+      y: centerY + (radius * Math.sin(angle)),
+    };
+  }
+})();
+</script>
+{% endblock %}

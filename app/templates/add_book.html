@@ -2,7 +2,8 @@
 
 {% block content %}
 <h2>Add a Book</h2>
-<form method="POST">
+<form method="POST" enctype="multipart/form-data">
+  {{ csrf_input }}
   <div class="mb-3">
     <label for="title" class="form-label">Title</label>
     <input type="text" class="form-control" name="title" required>
@@ -16,6 +17,18 @@
   <div class="mb-3">
     <label for="isbn" class="form-label">ISBN</label>
     <input type="text" class="form-control" name="isbn">
+  </div>
+
+  <div class="mb-3">
+    <label for="cover_url" class="form-label">Cover Image URL</label>
+    <input type="url" class="form-control" name="cover_url" placeholder="Leave blank to auto-fetch from ISBN">
+    <div class="form-text">Optional. Use this to link to a cover image hosted elsewhere.</div>
+  </div>
+
+  <div class="mb-3">
+    <label for="cover_file" class="form-label">Upload Cover Image</label>
+    <input type="file" class="form-control" name="cover_file" id="cover_file" accept="image/*">
+    <div class="form-text">Optional. Accepted formats: PNG, JPG, JPEG, GIF, WEBP.</div>
   </div>
 
   <div class="mb-3">

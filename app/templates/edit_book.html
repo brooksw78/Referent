@@ -2,7 +2,8 @@
 
 {% block content %}
 <h2>Edit Book</h2>
-<form method="POST">
+<form method="POST" enctype="multipart/form-data">
+  {{ csrf_input }}
   <div class="mb-3">
     <label for="title" class="form-label">Title</label>
     <input type="text" class="form-control" name="title" value="{{ book.title }}" required>
@@ -16,6 +17,39 @@
   <div class="mb-3">
     <label for="isbn" class="form-label">ISBN</label>
     <input type="text" class="form-control" name="isbn" value="{{ book.isbn }}">
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Cover Image</label>
+    <div class="mb-3">
+      <img src="{{ book.cover_preview }}" alt="Cover preview" class="img-thumbnail" style="max-height: 220px;">
+    </div>
+    <div class="text-muted small mb-3">
+      {% if book.cover_image_path %}
+        Using uploaded cover stored at <code>{{ book.cover_image_path }}</code>.
+      {% elif book.cover_url %}
+        Using external cover URL: <a href="{{ book.cover_url }}" target="_blank" rel="noopener noreferrer">{{ book.cover_url }}</a>.
+      {% else %}
+        No cover stored yet.
+      {% endif %}
+    </div>
+    <label for="cover_url" class="form-label">Cover Image URL</label>
+    <div class="input-group mb-3">
+      <input type="url" class="form-control" name="cover_url" id="cover_url" value="{{ book.cover_url or '' }}" placeholder="https://example.org/cover.jpg">
+      <button type="submit" name="_action" value="fetch_cover" class="btn btn-outline-secondary">Fetch from ISBN</button>
+    </div>
+    <div class="form-text mb-3">Update the URL manually or fetch from Open Library if an ISBN is present.</div>
+
+    <label for="cover_file" class="form-label">Upload New Cover</label>
+    <input type="file" class="form-control" name="cover_file" id="cover_file" accept="image/*">
+    <div class="form-text">Uploading a file saves a local copy and replaces any existing uploaded cover.</div>
+
+    {% if book.cover_image_path %}
+    <div class="form-check mt-3">
+      <input class="form-check-input" type="checkbox" name="remove_cover" id="remove_cover">
+      <label class="form-check-label" for="remove_cover">Remove the uploaded cover file</label>
+    </div>
+    {% endif %}
   </div>
 
   <div class="mb-3">
@@ -33,7 +67,7 @@
     <label class="form-check-label" for="is_complete">Mark as complete</label>
   </div>
 
-  <button type="submit" class="btn btn-primary">Update Book</button>
+  <button type="submit" name="_action" value="save" class="btn btn-primary">Update Book</button>
   <a href="{{ url_for('main.view_book', book_id=book.id) }}" class="btn btn-secondary">Cancel</a>
 </form>
 {% endblock %}

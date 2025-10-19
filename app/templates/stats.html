@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Collection Stats</h2>
+<p class="text-muted">A snapshot of everything tracked in Referent.</p>
+
+<div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4 mt-2">
+  <div class="col">
+    <div class="card shadow-sm h-100">
+      <div class="card-body text-center">
+        <h6 class="text-uppercase text-muted fw-semibold">Books</h6>
+        <div class="display-5 fw-bold">{{ counts.books }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card shadow-sm h-100">
+      <div class="card-body text-center">
+        <h6 class="text-uppercase text-muted fw-semibold">Referents</h6>
+        <div class="display-5 fw-bold">{{ counts.citations }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card shadow-sm h-100">
+      <div class="card-body text-center">
+        <h6 class="text-uppercase text-muted fw-semibold">Epigraphs</h6>
+        <div class="display-5 fw-bold">{{ counts.epigraphs }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card shadow-sm h-100">
+      <div class="card-body text-center">
+        <h6 class="text-uppercase text-muted fw-semibold">People</h6>
+        <div class="display-5 fw-bold">{{ counts.people }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card shadow-sm h-100">
+      <div class="card-body text-center">
+        <h6 class="text-uppercase text-muted fw-semibold">People Types</h6>
+        <div class="display-5 fw-bold">{{ counts.person_types }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card shadow-sm h-100">
+      <div class="card-body text-center">
+        <h6 class="text-uppercase text-muted fw-semibold">Nationalities</h6>
+        <div class="display-5 fw-bold">{{ counts.nationalities }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

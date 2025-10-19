@@ -4,16 +4,17 @@
 <h2>Edit Person</h2>
 
 <form method="POST">
+  {{ csrf_input }}
   <div class="mb-3">
     <label for="name" class="form-label">Name</label>
-    <input type="text" class="form-control" name="name" value="{{ person[1] }}" required>
+    <input type="text" class="form-control" name="name" value="{{ person.name }}" required>
   </div>
 
   <div class="mb-3">
     <label for="wiki_url" class="form-label">Wikipedia URL</label>
     <div class="input-group">
-      <input type="url" class="form-control" name="wiki_url" value="{{ person[3] or '' }}" placeholder="https://en.wikipedia.org/wiki/Example">
-      <a class="btn btn-outline-secondary" href="https://en.wikipedia.org/w/index.php?search={{ person[1]|urlencode }}" target="_blank" rel="noreferrer">Find</a>
+      <input type="url" class="form-control" name="wiki_url" value="{{ person.wiki_url or '' }}" placeholder="https://en.wikipedia.org/wiki/Example">
+      <a class="btn btn-outline-secondary" href="https://en.wikipedia.org/w/index.php?search={{ person.name|urlencode }}" target="_blank" rel="noreferrer">Find</a>
     </div>
   </div>
 
@@ -22,32 +23,48 @@
     <select class="form-select" name="type_id">
       <option value="">— Select type —</option>
       {% for type in person_types %}
-      <option value="{{ type[0] }}" {% if type[0] == person[2] %}selected{% endif %}>
-        {{ type[1] }}
-      </option>
-      {% endfor %}
-    </select>
-  </div>
-
-  <div class="mb-3">
-    <label for="nationality_id" class="form-label">Nationality</label>
-    <select class="form-select" name="nationality_id">
-      <option value="">— Select nationality —</option>
-      {% for nationality in nationalities %}
-      <option value="{{ nationality[0] }}" {% if nationality[0] == person[9] %}selected{% endif %}>
-        {{ nationality[1] }}
+      <option value="{{ type.id }}" {% if type.id == person.type_id %}selected{% endif %}>
+        {{ type.name }}
       </option>
       {% endfor %}
     </select>
   </div>
 
   <div class="mb-3 w-25">
+    <label for="sex" class="form-label">Sex</label>
+    <select class="form-select" name="sex" id="sex">
+      <option value="">— Not specified —</option>
+      {% for value, label in sex_choices %}
+      <option value="{{ value }}" {% if value == (person.sex or '') %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="mb-3">
+    <label for="nationality_id" class="form-label">Nationality</label>
+    <select class="form-select" name="nationality_id" id="nationality_id">
+      <option value="">— Select nationality —</option>
+      {% for nationality in nationalities %}
+      <option value="{{ nationality.id }}" {% if nationality.id == person.nationality_id %}selected{% endif %}>
+        {{ nationality.name }}
+      </option>
+      {% endfor %}
+      <option value="_new">+ Add new nationality...</option>
+    </select>
+  </div>
+
+  <div class="mb-3" id="new-nationality-container" style="display: none;">
+    <label for="new_nationality" class="form-label">New Nationality</label>
+    <input type="text" class="form-control" name="new_nationality" id="new_nationality" autocomplete="off">
+  </div>
+
+  <div class="mb-3 w-25">
     <label for="birth_year" class="form-label">Birth Year</label>
     <div class="input-group">
-      <input type="number" class="form-control" name="birth_year" id="birth_year" min="0" max="2100" value="{{ person[5] or '' }}">
+      <input type="number" class="form-control" name="birth_year" id="birth_year" min="0" max="2100" value="{{ person.birth_year or '' }}">
       <select class="form-select" name="birth_year_era">
-        <option value="AD" {% if (person[11] or 'AD') == 'AD' %}selected{% endif %}>AD</option>
-        <option value="BC" {% if person[11] == 'BC' %}selected{% endif %}>BC</option>
+        <option value="AD" {% if (person.birth_year_era or 'AD') == 'AD' %}selected{% endif %}>AD</option>
+        <option value="BC" {% if person.birth_year_era == 'BC' %}selected{% endif %}>BC</option>
       </select>
     </div>
   </div>
@@ -55,41 +72,62 @@
   <div class="mb-3 w-25">
     <label for="death_year" class="form-label">Death Year</label>
     <div class="input-group">
-      <input type="number" class="form-control" name="death_year" id="death_year" min="0" max="2100" value="{{ person[6] or '' }}">
+      <input type="number" class="form-control" name="death_year" id="death_year" min="0" max="2100" value="{{ person.death_year or '' }}">
       <select class="form-select" name="death_year_era">
-        <option value="AD" {% if (person[12] or 'AD') == 'AD' %}selected{% endif %}>AD</option>
-        <option value="BC" {% if person[12] == 'BC' %}selected{% endif %}>BC</option>
+        <option value="AD" {% if (person.death_year_era or 'AD') == 'AD' %}selected{% endif %}>AD</option>
+        <option value="BC" {% if person.death_year_era == 'BC' %}selected{% endif %}>BC</option>
       </select>
     </div>
   </div>
 
   <div class="mb-3 w-75">
     <label for="notes" class="form-label">Notes <span class="text-muted">(optional)</span></label>
-    <textarea class="form-control" name="notes" id="notes" rows="3">{{ person[7] or '' }}</textarea>
+    <textarea class="form-control" name="notes" id="notes" rows="3">{{ person.notes or '' }}</textarea>
   </div>
 
-  <button type="submit" class="btn btn-primary">Save Changes</button>
+<button type="submit" class="btn btn-primary">Save Changes</button>
   <a href="{{ url_for('main.people') }}" class="btn btn-secondary">Cancel</a>
 </form>
 
-{% if person[3] or person[4] %}
+{% if person.wiki_url or person.bio_summary %}
   <div class="mt-4" style="max-width: 80rem;">
-    {% if person[3] %}
+    {% if person.wiki_url %}
       <div class="card bg-light mb-3">
           <div class="card-header">Wikipedia</div>
           <div class="card-body">
-              <p class="card-text"><a class="card-link" href="{{ person[3] }}" target="_blank">{{ person[3] }}</a></p>
+              <p class="card-text"><a class="card-link" href="{{ person.wiki_url }}" target="_blank">{{ person.wiki_url }}</a></p>
           </div>
       </div>
     {% endif %}
-    {% if person[4] %}
+    {% if person.bio_summary %}
       <div class="card text-white bg-primary mb-3">
           <div class="card-header">Summary</div>
           <div class="card-body">
-              <p class="card-text">{{ person[4] }}</p>
+              <p class="card-text">{{ person.bio_summary }}</p>
           </div>
       </div>
     {% endif %}
   </div>
 {% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const select = document.getElementById('nationality_id');
+  const container = document.getElementById('new-nationality-container');
+  const input = document.getElementById('new_nationality');
+
+  const toggle = () => {
+    if (select.value === '_new') {
+      container.style.display = 'block';
+      input.focus();
+    } else {
+      container.style.display = 'none';
+      input.value = '';
+    }
+  };
+
+  select.addEventListener('change', toggle);
+  toggle();
+});
+</script>
 {% endblock %}

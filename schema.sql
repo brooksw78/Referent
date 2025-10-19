@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS books (
     isbn TEXT,
     is_complete INTEGER NOT NULL DEFAULT 0,
     cover_url TEXT,
+    cover_image_path TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS people (
     bio_summary TEXT,
     type_id INTEGER,
     nationality_id INTEGER,
+    sex TEXT,
     birth_year INTEGER,
     death_year INTEGER,
     birth_year_era TEXT NOT NULL DEFAULT 'AD',
