@@ -36,6 +36,20 @@
         {% endif %}
       </div>
     </div>
+    <div class="row g-2 align-items-center mt-1">
+      <div class="col-md-4">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="missing_nationality" id="filter-missing-nationality" value="1" {% if filter_missing_nationality %}checked{% endif %}>
+          <label class="form-check-label" for="filter-missing-nationality">Only show people without a nationality</label>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="missing_sex" id="filter-missing-sex" value="1" {% if filter_missing_sex %}checked{% endif %}>
+          <label class="form-check-label" for="filter-missing-sex">Only show people without a recorded sex</label>
+        </div>
+      </div>
+    </div>
   </form>
   <div class="flex-shrink-0">
     <a href="{{ url_for('main.add_person') }}" class="btn btn-success w-100">Add Person</a>

@@ -1,4 +1,5 @@
 import math
+import mimetypes
 import sqlite3
 from collections import defaultdict
 from pathlib import Path
@@ -6,6 +7,8 @@ from urllib.parse import urlparse, unquote
 from uuid import uuid4
 
 from datetime import datetime
+
+import requests
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, abort, flash, current_app
 from werkzeug.utils import secure_filename
 from . import db
@@ -63,6 +66,86 @@ def _save_uploaded_cover(file_storage, existing_path=None):
 
     relative_path = destination.relative_to(Path(current_app.static_folder))
     return str(relative_path).replace("\\", "/")
+
+
+def _is_open_library_cover(url):
+    if not url:
+        return False
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    host = (parsed.netloc or "").lower()
+    return host == "covers.openlibrary.org"
+
+
+def _save_remote_cover(url, existing_path=None):
+    if not url:
+        return existing_path
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        current_app.logger.warning("Failed to download cover from %s: %s", url, exc)
+        return existing_path
+
+    content = response.content
+    if not content:
+        current_app.logger.warning("Remote cover at %s returned no content", url)
+        return existing_path
+
+    allowed = _get_allowed_cover_extensions()
+    content_type = (response.headers.get("Content-Type") or "").split(";")[0].strip()
+    extension = None
+    if content_type:
+        extension = mimetypes.guess_extension(content_type) or None
+    if extension:
+        extension = extension.lower().lstrip(".")
+    if extension == "jpe":
+        extension = "jpg"
+    if not extension or extension not in allowed:
+        parsed = urlparse(url)
+        extension = Path(parsed.path or "").suffix.lower().lstrip(".")
+        if extension == "jpe":
+            extension = "jpg"
+    if not extension or extension not in allowed:
+        extension = "jpg" if "jpg" in allowed else next(iter(allowed), "jpg")
+
+    upload_dir = _cover_upload_directory()
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    unique_name = f"{uuid4().hex}.{extension}"
+    destination = upload_dir / unique_name
+    try:
+        with destination.open("wb") as fh:
+            fh.write(content)
+    except OSError as exc:
+        current_app.logger.exception("Failed to write remote cover image to disk: %s", exc)
+        return existing_path
+
+    if existing_path:
+        _delete_cover_file(existing_path)
+
+    relative_path = destination.relative_to(Path(current_app.static_folder))
+    saved_path = str(relative_path).replace("\\", "/")
+    current_app.logger.info("Stored remote cover at %s", saved_path)
+    return saved_path
+
+
+def _ensure_local_open_library_cover(cover_url, existing_path=None):
+    if not _is_open_library_cover(cover_url):
+        return existing_path
+    return _save_remote_cover(cover_url, existing_path=existing_path)
+
+
+def _fetch_and_store_open_library_cover(isbn, existing_path=None):
+    if not isbn:
+        return None, existing_path
+    cover_url = fetch_cover_url(isbn)
+    if not cover_url:
+        return None, existing_path
+    cover_image_path = _save_remote_cover(cover_url, existing_path=existing_path)
+    return cover_url, cover_image_path
 
 
 def _build_cover_image_url(cover_url, cover_image_path):
@@ -319,8 +402,11 @@ def add_book():
                 flash("We couldn't save that cover image. Please try again.", "danger")
                 cover_image_path = None
 
-        if not cover_image_path and not cover_url and isbn:
-            cover_url = fetch_cover_url(isbn)
+        if not cover_image_path:
+            if cover_url and _is_open_library_cover(cover_url):
+                cover_image_path = _ensure_local_open_library_cover(cover_url, existing_path=cover_image_path)
+            elif not cover_url and isbn:
+                cover_url, cover_image_path = _fetch_and_store_open_library_cover(isbn, existing_path=cover_image_path)
 
         book_id = db.add_book(title, year, isbn, cover_url=cover_url, cover_image_path=cover_image_path)
 
@@ -377,9 +463,6 @@ def edit_book(book_id):
         remove_cover = request.form.get("remove_cover") == "on"
         cover_image_path = book["cover_image_path"] or None
 
-        if not cover_image_path and not cover_url and isbn:
-            cover_url = fetch_cover_url(isbn)
-
         if action == "fetch_cover":
             if remove_cover and cover_image_path:
                 _delete_cover_file(cover_image_path)
@@ -389,14 +472,24 @@ def edit_book(book_id):
                 cover_url = None
                 current_app.logger.warning("Fetch cover requested without ISBN for book id=%s", book_id)
             else:
-                cover_url = fetch_cover_url(isbn)
-                if cover_url:
-                    flash("Cover fetched from Open Library.", "success")
-                    if cover_image_path:
-                        _delete_cover_file(cover_image_path)
-                        cover_image_path = None
+                cover_url, cover_image_path = _fetch_and_store_open_library_cover(
+                    isbn,
+                    existing_path=cover_image_path,
+                )
+                if cover_image_path:
+                    flash("Cover fetched from Open Library and stored locally.", "success")
                     current_app.logger.info(
-                        "Fetched cover from Open Library for book id=%s isbn=%s",
+                        "Fetched and saved Open Library cover for book id=%s isbn=%s",
+                        book_id,
+                        isbn,
+                    )
+                elif cover_url:
+                    flash(
+                        "Cover fetched from Open Library, but saving it locally failed.",
+                        "warning",
+                    )
+                    current_app.logger.warning(
+                        "Fetched Open Library cover for book id=%s isbn=%s but could not store locally",
                         book_id,
                         isbn,
                     )
@@ -451,6 +544,12 @@ def edit_book(book_id):
                 _delete_cover_file(cover_image_path)
                 cover_image_path = None
                 current_app.logger.info("Removed uploaded cover for book id=%s", book_id)
+            if cover_url and _is_open_library_cover(cover_url):
+                if not cover_image_path or cover_url != (book["cover_url"] or ""):
+                    cover_image_path = _ensure_local_open_library_cover(
+                        cover_url,
+                        existing_path=cover_image_path,
+                    )
             elif (
                 cover_image_path
                 and cover_url
@@ -461,6 +560,17 @@ def edit_book(book_id):
                 current_app.logger.info(
                     "Replaced uploaded cover with remote URL for book id=%s", book_id
                 )
+            if not cover_image_path and not cover_url and isbn:
+                cover_url, cover_image_path = _fetch_and_store_open_library_cover(
+                    isbn,
+                    existing_path=cover_image_path,
+                )
+                if cover_image_path:
+                    current_app.logger.info(
+                        "Auto-fetched Open Library cover for book id=%s isbn=%s",
+                        book_id,
+                        isbn,
+                    )
 
         db.update_book(book_id, title, year, isbn, is_complete, cover_url, cover_image_path)
 
@@ -616,6 +726,8 @@ def people():
     search_term = raw_query.strip()
     type_arg = request.args.get("type_id")
     nationality_arg = request.args.get("nationality_id")
+    missing_nationality_arg = request.args.get("missing_nationality")
+    missing_sex_arg = request.args.get("missing_sex")
 
     def _parse_filter(value):
         if value is None or value == "":
@@ -625,13 +737,23 @@ def people():
         except (TypeError, ValueError):
             return None
 
+    def _parse_checkbox(value):
+        if value is None:
+            return False
+        normalized = value.strip().lower()
+        return normalized in {"1", "true", "yes", "on"}
+
     selected_type_id = _parse_filter(type_arg)
     selected_nationality_id = _parse_filter(nationality_arg)
+    filter_missing_nationality = _parse_checkbox(missing_nationality_arg)
+    filter_missing_sex = _parse_checkbox(missing_sex_arg)
 
     all_people = db.get_people(
         search_term or None,
         type_id=selected_type_id,
         nationality_id=selected_nationality_id,
+        missing_nationality=filter_missing_nationality,
+        missing_sex=filter_missing_sex,
     )
     for person in all_people:
         person["sex_label"] = _format_sex_label(person.get("sex"))
@@ -641,6 +763,8 @@ def people():
         (search_term or "").strip()
         or selected_type_id is not None
         or selected_nationality_id is not None
+        or filter_missing_nationality
+        or filter_missing_sex
     )
     return render_template(
         "people.html",
@@ -651,6 +775,8 @@ def people():
         selected_type_id=selected_type_id,
         selected_nationality_id=selected_nationality_id,
         filters_active=filters_active,
+        filter_missing_nationality=filter_missing_nationality,
+        filter_missing_sex=filter_missing_sex,
     )
 
 

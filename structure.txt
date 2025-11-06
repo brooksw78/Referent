@@ -1,30 +1,45 @@
 referent/
 ├── app/
-│   ├── __init__.py              # Flask app factory
-│   ├── routes.py                # Flask routes (view, add, list)
-│   ├── db.py                    # Raw SQLite3 helper functions
-│   ├── wikipedia_utils.py       # Wikipedia lookup functions
-│   ├── templates/               # Jinja2 HTML templates
-│   │   ├── base.html
-│   │   ├── index.html
-│   │   ├── books.html
-│   │   ├── add_book.html
-│   │   ├── people.html
-│   │   ├── add_person.html
-│   │   ├── citations.html
-│   │   └── add_citation.html
-│   └── static/
-│       └── style.css            # Optional styles
-├── instance/
-│   └── referent.sqlite3         # SQLite DB (auto-generated)
-├── schema.sql                   # Full schema for init
-├── run.py                       # Flask app entry point
-├── .env                         # Flask environment variables
-├── .envrc                       # direnv auto-activation (optional)
+│   ├── __init__.py              # Flask app factory, auth, CSRF wiring
+│   ├── db.py                    # Primary Postgres data access helpers
+│   ├── db_postgres.py           # Lightweight psycopg helpers for scripts
+│   ├── open_library_utils.py    # Open Library lookup helpers
+│   ├── wikipedia_utils.py       # Wikipedia summary helpers
+│   ├── routes.py                # Main blueprint routes and views
+│   ├── api/
+│   │   └── main.py              # API endpoints (blueprint)
+│   ├── static/
+│   │   ├── style.css            # Global styles, layout tweaks
+│   │   ├── images/
+│   │   │   ├── cover_image_not_found.png
+│   │   │   ├── favicon.png
+│   │   │   └── referent-logo.png
+│   │   └── uploads/             # Generated cover uploads (gitignored)
+│   └── templates/               # Jinja2 templates for UI
+│       ├── base.html
+│       ├── index.html
+│       ├── books.html / add_book.html / view_book.html
+│       ├── people.html / add_person.html / edit_person.html / view_person.html
+│       ├── citations.html / add_citation.html / edit_citation.html
+│       ├── epigraphs.html
+│       ├── person_types.html
+│       └── login.html
+├── migrations/
+│   ├── 001_init.sql             # Base PostgreSQL schema
+│   └── 002_indexes.sql          # Supporting indexes
+├── scripts/
+│   ├── __init__.py
+│   ├── apply_migrations.py      # Simple migration runner
+│   ├── sqlite_to_postgres.py    # Data migration helper
+│   └── smoke_test.py            # Quick runtime verification
+├── instance/                    # Runtime state (ignored in VCS)
+│   └── referent.sqlite3
+├── schema.sql                   # Regenerated schema snapshot
+├── structure.txt                # Repository overview (this file)
+├── run.py                       # Flask entry point
+├── README.md                    # Project overview & docs
 ├── requirements.txt             # Python dependencies
-├── .gitignore                   # Ignore venv, DB, etc.
-├── README.md                    # Project overview
-├── venv/                        # Python virtual environment (excluded from Git)
-└── .vscode/                     # VS Code settings (optional)
-    ├── launch.json              # Flask debugger config
-    └── settings.json            # Python path & env file
+├── .env                         # Environment configuration (local)
+├── .env.example                 # Sample env configuration
+└── .vscode/
+    └── launch.json              # VS Code debugging config

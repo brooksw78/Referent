@@ -88,14 +88,87 @@
   </button>
   <div class="collapse" id="summary-collapse">
     <div class="card-body">
+      {% set type_totals = namespace(total=0) %}
+      {% for row in summary_data.person_types %}
+        {% set type_totals.total = type_totals.total + (row.total or 0) %}
+      {% endfor %}
+
+      {% set nationality_totals = namespace(total=0) %}
+      {% for row in summary_data.nationalities %}
+        {% set nationality_totals.total = nationality_totals.total + (row.total or 0) %}
+      {% endfor %}
+
       <div class="row g-4">
         <div class="col-lg-6">
-          <h6 class="summary-heading">People Types</h6>
-          <div id="summary-person-types" class="summary-donut" data-empty-text="No referenced person types yet."></div>
+          <h6 class="summary-heading d-flex align-items-center justify-content-between">
+            <span>People Types</span>
+            {% if type_totals.total %}
+              <span class="badge bg-light text-dark fw-normal">{{ type_totals.total }} references</span>
+            {% endif %}
+          </h6>
+
+          {% if summary_data.person_types %}
+            <div class="list-group list-group-flush reference-breakdown">
+              {% for row in summary_data.person_types %}
+                {% set pct = (row.total / type_totals.total * 100) if type_totals.total else 0 %}
+                <div class="list-group-item px-0">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="fw-semibold text-truncate me-2">{{ row.name or 'Unclassified' }}</span>
+                    <span class="badge rounded-pill bg-primary-subtle text-primary">{{ row.total }}</span>
+                  </div>
+                  <div class="progress" role="presentation" style="height: 6px;">
+                    <div
+                      class="progress-bar bg-primary"
+                      style="width: {{ pct|round(1) }}%;"
+                      aria-label="{{ row.name or 'Unclassified' }} accounts for {{ pct|round(1) }} percent"
+                    ></div>
+                  </div>
+                  <div class="d-flex justify-content-between small text-muted mt-1">
+                    <span>{{ (pct|round(1))|float }}%</span>
+                    <span>Includes citations &amp; epigraphs</span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted mb-0">No referenced person types yet.</p>
+          {% endif %}
         </div>
+
         <div class="col-lg-6">
-          <h6 class="summary-heading">Nationalities</h6>
-          <div id="summary-nationalities" class="summary-donut" data-empty-text="No referenced nationalities yet."></div>
+          <h6 class="summary-heading d-flex align-items-center justify-content-between">
+            <span>Nationalities</span>
+            {% if nationality_totals.total %}
+              <span class="badge bg-light text-dark fw-normal">{{ nationality_totals.total }} references</span>
+            {% endif %}
+          </h6>
+
+          {% if summary_data.nationalities %}
+            <div class="list-group list-group-flush reference-breakdown">
+              {% for row in summary_data.nationalities %}
+                {% set pct = (row.total / nationality_totals.total * 100) if nationality_totals.total else 0 %}
+                <div class="list-group-item px-0">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="fw-semibold text-truncate me-2">{{ row.name or 'Unspecified' }}</span>
+                    <span class="badge rounded-pill bg-success-subtle text-success">{{ row.total }}</span>
+                  </div>
+                  <div class="progress" role="presentation" style="height: 6px;">
+                    <div
+                      class="progress-bar bg-success"
+                      style="width: {{ pct|round(1) }}%;"
+                      aria-label="{{ row.name or 'Unspecified' }} accounts for {{ pct|round(1) }} percent"
+                    ></div>
+                  </div>
+                  <div class="d-flex justify-content-between small text-muted mt-1">
+                    <span>{{ (pct|round(1))|float }}%</span>
+                    <span>Across citations &amp; epigraphs</span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted mb-0">No referenced nationalities yet.</p>
+          {% endif %}
         </div>
       </div>
     </div>

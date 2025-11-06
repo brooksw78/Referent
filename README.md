@@ -30,6 +30,10 @@ Referent is a small Flask application for tracking notable people referenced in 
 
 Both services are accessed anonymously; no API keys are required.
 
+## Authentication
+
+Set `APP_LOGIN_USERNAME` and `APP_LOGIN_PASSWORD` to enable the built-in sign-in page. Requests will be redirected to `/login` until a valid session is established. Optionally, `APP_LOGIN_TITLE` customizes the heading shown on the form. Leave the credentials blank to keep the application open for local development.
+
 ## License
 
 This project is provided as-is for instructional purposes. 

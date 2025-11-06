@@ -1,2 +1,5 @@
 flask
 wikipedia-api
+fastapi
+uvicorn[standard]
+psycopg[binary]
